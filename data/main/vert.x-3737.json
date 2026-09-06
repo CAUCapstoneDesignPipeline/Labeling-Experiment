@@ -1,0 +1,75 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3737,
+ "title": "Tracing and span are not propagated and recorded when EventBusProxies or EventBus is used to communicate between multiple microservices",
+ "body": "### Version\r\n\r\n4.0.0\r\n\r\n### Context\r\n\r\nTesting zipkin tracing repository, I discovered that the traceId and spanId generated when an HTTP request is received on the server are not propagated and stored when communication between microservices are done through EventBusProxies/EventBus. \r\n\r\n### Steps to reproduce\r\n\r\n1. create vertx project, enable tracing and import io.vertx:vertx-zipkin:4.0.0\r\n2. send a request to vertx http server\r\n3. forward request to microservices through EventBusProxies or Eventbus\r\n4. monitor recorded traces, request sent through Eventbus will not be recorded",
+ "created_at": "2021-01-06T11:25:54Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug",
+  "help wanted"
+ ],
+ "comments": [
+  {
+   "body": "I also experienced this issue. Any solution?",
+   "created_at": "2021-01-06T11:32:01Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "can somebody provide a reproducer project to help resolving this faster ?",
+   "created_at": "2021-01-06T12:00:58Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I think I ran into the same issue when trying out https://github.com/tsegismont/vertx-contextual-logging from @tsegismont \r\n\r\nI made a reproducing project:\r\nhttps://github.com/LarsEckart/vertx-local-context-data-example \r\n\r\nThe project has a test which shows the behaviour (not by failing the test but the test produces the log output which shows the problem)\r\n\r\n![Screen Shot 2021-01-08 at 16 19 51](https://user-images.githubusercontent.com/4414802/104025485-633cb300-51cd-11eb-819b-4ccd075e429b.png)\r\n",
+   "created_at": "2021-01-08T14:21:13Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@LarsEckart it's a different issue. Contextual data is not propagated over the EventBus. You need to register inbound/outbound interceptors. See https://github.com/tsegismont/vertx-contextual-logging#propagation",
+   "created_at": "2021-01-08T17:24:15Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj I made a reproducing project:\r\nhttps://github.com/ayomide101/vertx-eventbus-trace-span-example\r\n\r\nI hope it helps",
+   "created_at": "2021-01-09T15:58:31Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@tsegismont ping any progress on this ?",
+   "created_at": "2021-01-20T09:03:05Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj here's what I found\r\n\r\nIn `OutboundDeliveryContext`, the tracing policy is hard-coded to `PROPAGATE` (unlike in, for example, `HttpClient` where this is configurable with options).\r\n\r\nhttps://github.com/eclipse-vertx/vert.x/blob/c0e7ad01a2718d2021b874a7da66da34263d1074/src/main/java/io/vertx/core/eventbus/impl/OutboundDeliveryContext.java#L121\r\n\r\nConsequently, given there is no active span when the method is called, no new span is created.\r\n(In the reproducer, the user invokes the `EventBus` from `setPeriodic`).\r\n\r\nCan you remind me why the policy is hard-coded to `PROPAGATE` for the `EventBus`?",
+   "created_at": "2021-01-22T13:55:43Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Client won't start automatically a span for each request by default, as multiple client usage in the same flow would result in several uncorrelated spans. Therefore this case should be possible only if configured explicitely.\r\n",
+   "created_at": "2021-01-25T13:18:51Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "> Therefore this case should be possible only if configured explicitely.\r\n\r\nYou mean if a span is created manually?",
+   "created_at": "2021-01-25T15:14:21Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I haven't spent time on this, but if you look at HttpServerOptions and\nHttpClientOptions you can specify the policy.\n\nI think one could specify the policy on DeliveryOptions too to address the\nsame use case.\n\nOn Mon, Jan 25, 2021 at 4:14 PM Thomas Segismont <notifications@github.com>\nwrote:\n\n> Therefore this case should be possible only if configured explicitely.\n>\n> You mean if a span is created manually?\n>\n> —\n> You are receiving this because you were mentioned.\n> Reply to this email directly, view it on GitHub\n> <https://github.com/eclipse-vertx/vert.x/issues/3737#issuecomment-766886081>,\n> or unsubscribe\n> <https://github.com/notifications/unsubscribe-auth/AABXDCX7JI7TOGUKSHLS5QLS3WDF3ANCNFSM4VXM3K3A>\n> .\n>\n",
+   "created_at": "2021-01-25T16:24:25Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 10,
+ "n_comments_total": 11,
+ "linked_prs": [
+  {
+   "number": 3768,
+   "created_at": "2021-01-26T13:58:36Z",
+   "merged_at": "2021-01-27T12:54:40Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-01-26T13:58:36+00:00"
+}

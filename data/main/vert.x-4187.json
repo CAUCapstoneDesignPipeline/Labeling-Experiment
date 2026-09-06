@@ -1,0 +1,44 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4187,
+ "title": "addCookie method does not replace existing cookie (from browser) and fails when calling RoutingContext.cookieMap()",
+ "body": "### Version\r\n\r\n4.2.1\r\n\r\n### Context\r\n\r\nWe were using (in version 3.9.9) HttpServerResponse.addCookie to set cookie irrespective of whether the cookie was already present (came from browser) and when we iterate over cookies using RoutingContext.cookieMap() we would get a single cookie with that name (i.e. cookie info was updated)\r\nAfter upgrading to 4.2.1, calling RoutingContext.cookieMap() fails with this exception stack trace\r\n\r\n\r\nThis method assumes cookies are unique by name. However the implementation for addCookie() always adds a cookie to collection (this seems to be a feature request).\r\n\r\n```\r\ndefault Map<String, Cookie> cookieMap() {\r\n    return cookies()\r\n      .stream()\r\n      .collect(Collectors.toMap(Cookie::getName, cookie -> cookie));\r\n  }\r\n```\r\n\r\n### Do you have a reproducer?\r\n\r\nNo. \r\n\r\n### Steps to reproduce\r\n\r\nCreate sample web app that renders simple form and addCookie(\"test\", \"somevalue\"). On form submit, call addCookie(\"test\", \"anothervalie\") to modify the cookie value without removing it first. Then invoke RoutingContext.cookieMap() to get all cookies.\r\n\r\n### Extra\r\n\r\n\r\n",
+ "created_at": "2021-12-03T18:09:42Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "It would be good to have setCookie or replaceCookie method that would have the previous semantics (add or replace by cookie name) for convenience ",
+   "created_at": "2021-12-03T18:15:22Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@narras-oss I'm not following the error:\r\n\r\n```java\r\n  @Test\r\n  public void testReplaceCookie() throws Exception {\r\n    // receive a HTTP request with a cookie header with value `test=somevalue` \r\n    testCookies(\"test=somevalue\", req -> {\r\n      // OK\r\n      assertEquals(1, req.cookieCount());\r\n      // is it supposed to fail here? It currently (master) doesn't\r\n      req.response().addCookie(Cookie.cookie(\"test\", \"othervalue\"));\r\n      Map<String, Cookie> deprecatedMap = req.cookieMap();\r\n      req.response().end();\r\n    }, resp -> {\r\n      // received 1 cookie back (the new one replaced the one received)\r\n      // test=othervalue\r\n      // ?? what was expected?\r\n      List<String> cookies = resp.headers().getAll(\"set-cookie\");\r\n    });\r\n  }\r\n```",
+   "created_at": "2021-12-07T13:25:09Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "This is the code i am specifically using\r\n\r\n```\r\nCookie cookie = Cookie.cookie(\"test\", \"somestring\")\r\ncookie.setSecure(true);\r\ncookie.setPath(\"/\");\r\nroutingContext.addCookie(cookie);\r\n```\r\n\r\nStack trace of exception when calling routingContext.cookieMap() after that is below.\r\n\r\n```\r\nCaused by: java.lang.IllegalStateException: Duplicate key XSRF-TOKEN (attempted merging values io.vertx.core.http.impl.CookieImpl@434aa077 and io.vertx.core.http.impl.CookieImpl@4dd9a0b1)\r\n\tat java.base/java.util.stream.Collectors.duplicateKeyException(Unknown Source)\r\n\tat java.base/java.util.stream.Collectors.lambda$uniqKeysMapAccumulator$1(Unknown Source)\r\n\tat java.base/java.util.stream.ReduceOps$3ReducingSink.accept(Unknown Source)\r\n\tat java.base/java.util.ArrayList$Itr.forEachRemaining(Unknown Source)\r\n\tat java.base/java.util.Spliterators$IteratorSpliterator.forEachRemaining(Unknown Source)\r\n\tat java.base/java.util.stream.AbstractPipeline.copyInto(Unknown Source)\r\n\tat java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(Unknown Source)\r\n\tat java.base/java.util.stream.ReduceOps$ReduceOp.evaluateSequential(Unknown Source)\r\n\tat java.base/java.util.stream.AbstractPipeline.evaluate(Unknown Source)\r\n\tat java.base/java.util.stream.ReferencePipeline.collect(Unknown Source)\r\n\tat io.vertx.core.http.HttpServerRequest.cookieMap(HttpServerRequest.java:518)\r\n\tat io.vertx.ext.web.impl.RoutingContextImpl.cookieMap(RoutingContextImpl.java:282)\r\n\tat io.vertx.ext.web.impl.RoutingContextDecorator.cookieMap(RoutingContextDecorator.java:84)\r\n```\r\n",
+   "created_at": "2021-12-07T19:27:32Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Updated steps for my specific scenario:\r\n\r\nSpecifically this is the original value of that comes from browser\r\nXSRF-TOKEN=c359b44aef83415\r\n\r\nThen when you try to add a different value for cookie \"XSRF-TOKEN\" with path set to \"/\" like shown below\r\nXSRF-TOKEN=88533580000c314, path=/\r\n\r\nit is added again instead of being replaced. The bug seems to be here. cookieUniqueIdComparator returns < 0 for XSRF-TOKEN since it also compares path. This is a recent change (probably intentional). but it breaks the deprecated method request.cookieMap()\r\n\r\n```\r\npublic boolean add(ServerCookie cookie) {\r\n    if (cookie == null) {\r\n      throw new NullPointerException(\"cookie cannot be null\");\r\n    }\r\n\r\nfor (int i = 0; i < list.size(); i++) {\r\n      int cmp = cookieUniqueIdComparator(list.get(i), cookie.getName(), cookie.getDomain(), cookie.getPath());\r\n\r\n      if (cmp > 0) {\r\n        // insert\r\n        list.add(i, cookie);\r\n        return true;\r\n      }\r\n      if (cmp == 0) {\r\n        // replace\r\n        list.set(i, cookie);\r\n        return true;\r\n      }\r\n    }\r\n    // reached the end\r\n    list.add(cookie);\r\n```",
+   "created_at": "2021-12-07T19:58:44Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 4,
+ "n_comments_total": 5,
+ "linked_prs": [
+  {
+   "number": 4191,
+   "created_at": "2021-12-08T11:05:33Z",
+   "merged_at": "2021-12-08T19:42:38Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-12-08T11:05:33+00:00"
+}

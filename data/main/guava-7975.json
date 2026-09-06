@@ -1,0 +1,25 @@
+{
+ "repo": "google/guava",
+ "number": 7975,
+ "title": "Memory Leak in Cache.computeIfAbsent When Lambda Throws Exception",
+ "body": "### Guava Version\n\n33.4.8-jre\n\n### Description\n\nHi All, \n\nWhen using Cache.asMap().computeIfAbsent with a lambda that throws an exception, Guava’s LocalCache retains a reference to the failed computation indefinitely. This results in memory leaks that ultimately cause the JVM to run out of heap space.\n\nThe issue appears to be that the temporary ComputingValueReference created during computeIfAbsent is not released when the computation fails. This ComputingValueReference retains a SettableFuture, which holds the thrown RuntimeException. Because stack traces are large objects, repeated failures quickly exhaust the heap.\n\nSteps to Reproduce:\nRun the following program with -Xmx128m (or similarly small heap) to trigger the leak quickly:\n\n\nPS: We did implement the exception handling ourselves in loader function to avoid this issue.\n\n### Example\n\n```java\nimport com.google.common.cache.Cache;\nimport com.google.common.cache.CacheBuilder;\n\nimport java.util.UUID;\nimport java.util.concurrent.TimeUnit;\n\npublic class GuavaLeakReproducer {\n\n    public static void main(String[] args) {\n        System.out.println(\"Starting reproducer for OOM with a size-bounded cache and large exceptions...\");\n        System.out.println(\"Run with -Xmx128m to trigger the OutOfMemoryError quickly.\");\n\n        // We are now simulating the production cache with a fixed size.\n        final int MAX_CACHE_SIZE = 50000;\n\n        Cache<String, Boolean> leakingCache =\n                CacheBuilder.newBuilder()\n                        .maximumSize(MAX_CACHE_SIZE)\n                        .expireAfterAccess(4, TimeUnit.HOURS)\n                        .build();\n\n        long counter = 0;\n\n        while (true) {\n            String uniqueKey = UUID.randomUUID().toString() + \"-\" + counter;\n\n            try {\n                leakingCache.asMap().computeIfAbsent(uniqueKey, cacheKey -> {\n                    throw new RuntimeException(\"Failed to load value for key: \" + cacheKey);\n                });\n            } catch (Exception ignored) {\n                // The heavy exception object is now stored in the cache.\n            }\n\n            counter++;\n\n            // Report progress and heap usage.\n            if (counter % 500 == 0) {\n                long heapUsed = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / 1024 / 1024;\n                long heapMax = Runtime.getRuntime().maxMemory()/1024/1024;\n                System.out.printf(\"Processed %,d keys. Used Heap: %,d MB , Max Heap: %,d MB. Cache will OOM before eviction can help.%n\",\n                        counter, heapUsed,heapMax);\n            }\n\n            // The OOM will likely happen before or right as the cache hits its max size.\n            if (counter >= MAX_CACHE_SIZE * 1.5) {\n                System.out.println(\"Cache did not OOM as expected. The heap may be too large for this test.\");\n                break;\n            }\n        }\n    }\n}\n```\n\n### Expected Behavior\n\nCache should keep evicting elements based on maxSize and GC should keep collecting those objects.\n\n### Actual Behavior\n\nHeap usage continuously grows.\n\nOutOfMemoryError occurs before cache eviction can help.\n\nHeap dump shows many retained ComputingValueReference objects holding SettableFuture instances with RuntimeException stack traces.\n\n`Processed 27,000 keys. Used Heap: 31 MB , Max Heap: 32 MB.\njava.lang.OutOfMemoryError: Java heap space\n    at com.google.common.util.concurrent.AbstractFuture.setException(AbstractFuture.java:514)\n    at com.google.common.util.concurrent.SettableFuture.setException(SettableFuture.java:54)\n    at com.google.common.cache.LocalCache$LoadingValueReference.setException(LocalCache.java:3525)\n    ...\n`\n\n<img width=\"1222\" height=\"550\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/05bbc5fe-71ad-47d8-8650-9c805dde9d9e\" />\n\n### Packages\n\n_No response_\n\n### Platforms\n\n_No response_\n\n### Checklist\n\n- [x] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [x] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\n",
+ "created_at": "2025-09-08T17:59:55Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=defect",
+  "package=cache",
+  "P3"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 7980,
+   "created_at": "2025-09-11T14:36:13Z",
+   "merged_at": "2025-09-11T19:35:17Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-09-11T14:36:13+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5272,
+ "title": "HAManager couldn't see quorum if during its initialization cluster manager has all nodes joined already",
+ "body": "### Version\r\n\r\n4.5.7\r\n\r\n### Context\r\n\r\nMy app is based on Vert.x  with embedded Hazelcast cluster manager. When I run several instances of the app with HA mode enabled some instances cannot deploy HA verticles, and logs show that they have not attain quorum:  `Quorum not attained. Deployment of verticle will be delayed until there's a quorum.` \r\n\r\nBut actually they have.\r\n\r\nThe problem is that Hazelcast cluster could be in a state when all nodes have already joined at the moment when `HAManager` initialization starts. So `HAManager`s method  `nodeAdded` will never be called. Also `checkQuorum` method called on `init` see all nodes from `clusterManager`, but `clusterMap` do not contain information from all nodes. They will put it in several milliseconds later of course, but `checkQuorum` method will be completed at that time and never be called again.\r\n\r\n### Steps to reproduce\r\n\r\nIt just occurs in some cases.\r\n\r\n\r\n",
+ "created_at": "2024-08-03T09:41:29Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 5,
+ "linked_prs": [
+  {
+   "number": 5273,
+   "created_at": "2024-08-03T10:06:36Z",
+   "merged_at": "2024-08-17T09:11:32Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-08-03T10:06:36+00:00"
+}

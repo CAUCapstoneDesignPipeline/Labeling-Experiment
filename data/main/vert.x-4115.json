@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4115,
+ "title": "No Stack Trace In core exception logging",
+ "body": "Due to the lack of signature Logger.error(Throwable t) but Logger.error(Object message), all the logs that written like log.error(ex) do not output stack trace.\r\n\r\nexample:\r\nhttps://github.com/eclipse-vertx/vert.x/blob/67cd979e9d909753a41afc0f9fc99c6491828600/src/main/java/io/vertx/core/http/impl/HttpClientRequestImpl.java#L87\r\n",
+ "created_at": "2021-10-03T14:43:50Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4129,
+   "created_at": "2021-10-11T15:55:07Z",
+   "merged_at": "2021-10-12T08:21:21Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-10-11T15:55:07+00:00"
+}

@@ -1,0 +1,29 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4001,
+ "title": "NetClient local connectTimeout support",
+ "body": "#### Describe the feature\r\n\r\nNetClient now use a global connectTimeout by NetClientOptions.\r\nis that possible set a local connectTimeout when use NetClient.connect(xx) method ?\r\n\r\n#### Use cases\r\n\r\nso we can use a shared NetClient for tcp health check with difference upstream connect timeout.",
+ "created_at": "2021-07-07T03:59:22Z",
+ "author_association": "NONE",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "I want at some point to introduce ConnectOptions for NetClient but not right now, can you try using a different NetClient for this purpose ?",
+   "created_at": "2021-07-07T07:15:19Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 5031,
+   "created_at": "2023-12-12T16:08:21Z",
+   "merged_at": "2023-12-12T16:37:50Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2023-12-12T16:08:21+00:00"
+}

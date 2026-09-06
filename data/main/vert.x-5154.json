@@ -1,0 +1,35 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5154,
+ "title": "More load balancing policies",
+ "body": "In addition to the existing (round-robin and least request) policies in `io.vertx.core.loadbalancing.LoadBalancer`, we should have:\r\n\r\n- [x] random\r\n- [x] power of two choices\r\n\r\nPossible contributor @machine424",
+ "created_at": "2024-03-15T17:13:10Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "enhancement",
+  "help wanted"
+ ],
+ "comments": [
+  {
+   "body": "@vietj can you elaborate about the hashing load balancing policies you talked to me about off-list? I understand this could be used to solve different cases, including sticky web sessions",
+   "created_at": "2024-03-15T17:15:02Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "this is used indeed for sticky session\r\n\r\nthis policy requires API modification because we need to pass this ID from the request (HTTP but not necessarily) to the load balancing algorithm.\r\n\r\nmost likely `EndpointResolver#lookupEndpoint(ContextInternal,A)` needs to have this ID as parameter.\r\n\r\nUsers would use it using `RequestOptions` for HTTP requests and optionally set it.\r\n",
+   "created_at": "2024-03-15T19:48:15Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 5157,
+   "created_at": "2024-03-19T15:20:26Z",
+   "merged_at": "2024-03-23T10:34:02Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-03-19T15:20:26+00:00"
+}

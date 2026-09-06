@@ -1,0 +1,32 @@
+{
+ "n_issues": 10,
+ "M_all": 147,
+ "m_bar_all": 14.7,
+ "min_units_per_issue": 2,
+ "median_units_per_issue": 9,
+ "max_units_per_issue": 47,
+ "detail": {
+  "attached_to_prev": 14,
+  "merged_short": 6,
+  "dropped_short_at_boundary": 3,
+  "block:title": 10,
+  "source:title": 10,
+  "block:para": 118,
+  "source:body": 54,
+  "source:comment": 83,
+  "block:bullet": 19,
+  "dropped_quote_duplicate": 1
+ },
+ "per_issue": {
+  "google/guava#5773": 41,
+  "google/guava#8158": 47,
+  "eclipse-vertx/vert.x#3786": 6,
+  "eclipse-vertx/vert.x#3856": 5,
+  "eclipse-vertx/vert.x#4487": 7,
+  "eclipse-vertx/vert.x#4660": 10,
+  "eclipse-vertx/vert.x#5748": 9,
+  "eclipse-vertx/vert.x#6006": 4,
+  "eclipse-vertx/vert.x#6276": 2,
+  "eclipse-vertx/vert.x#6294": 16
+ }
+}

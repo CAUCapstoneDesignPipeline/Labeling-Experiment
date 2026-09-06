@@ -1,0 +1,30 @@
+{
+ "repo": "google/guava",
+ "number": 7625,
+ "title": "guava cache asMap() can raise AssertError or StackOverflowError when there is massive cache loading failed with exception",
+ "body": "### Guava Version\n\n33.2.1 and old versions use asMap() and ComputingValueReference\n\n### Description\n\nthe bug is specifically caused since a failure loading attempt results in ComputingValueReference keeps reference to previous loading attempt, repeating this behavior builds reference chain. When the specific entry is expired and to be evicted via preWriteCleanup(), the underlying copyEntry() call would evaluate the reference chain, if there is number of references in the chain exceeds a threshold, evaluating it would lead to the StackOverflowError, if there is other cache keys share the same bucket in the segment, and ahead of this key in the ReferenceEntry linked list, the accessQueue & the linked list will be out of sync, that access queue points to a new entry while the reference linked list failed to be updated as the result of the StackOverflow error.  Future access to the segment would all fail with \"AssertError\" as out of sync. \n\nSuggestion workaround:  move away from asMap(), considering deprecating the support as the value reference chain is defected in design.\n\n### Example\n\n```java\n`public void reproduceStackOverFlow() throws InterruptedException {\n        long expireAfterAccess = 10000L;\n        Cache<Integer, String> cache = CacheBuilder.newBuilder()\n                .expireAfterAccess(Duration.ofMillis(expireAfterAccess))\n                .build();\n\n        int key = 100;\n        int maxChainLength = 65536; //tested with JVM 2MB stack size, this number may go higher with larger stack size settings\n        for (int i = 0; i < maxChainLength; i++) {\n            try {\n                cache.asMap().computeIfAbsent(key, (k) -> {\n                    throw new RuntimeException(); //simulate loading error, can happen with no value for a specific key or a service call fail\n                });\n            } catch (Exception e) {\n                //ok, eat it\n            }\n        }\n\n        //let the entry expire\n        Thread.sleep(expireAfterAccess);\n\n        try {\n            cache.asMap().computeIfAbsent(key, (k) -> \"foobar\");\n            Assertions.fail();\n        } catch (Error error) {\n            error.printStackTrace();\n            if (!(error instanceof StackOverflowError)) {\n                Assertions.fail();\n            }\n        }\n    }`\n```\n\n### Expected Behavior\n\ncache can be managed \n\n### Actual Behavior\n\nfailed with StackOverflowError\n\n### Packages\n\ncom.google.common.cache\n\n### Platforms\n\n_No response_\n\n### Checklist\n\n- [x] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [x] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\n",
+ "created_at": "2025-01-17T18:32:00Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=defect",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Sounds like maybe this line needs to be wrapped in a try-catch that calls `removeLoadingValue` if an exception is thrown. It currently retains the failed. I saw something like this in #5438. I would generally avoid the compute methods in Guava's cache since it was not designed for that and made their addition fairly problematic. You might consider using [Caffeine](https://github.com/ben-manes/caffeine) instead.\n\nhttps://github.com/google/guava/blob/176cf74d8ed2ca22af2a9c88c902a229f6e009d5/guava/src/com/google/common/cache/LocalCache.java#L2267",
+   "created_at": "2025-01-18T19:21:10Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 7980,
+   "created_at": "2025-09-11T14:36:13Z",
+   "merged_at": "2025-09-11T19:35:17Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-09-11T14:36:13+00:00"
+}

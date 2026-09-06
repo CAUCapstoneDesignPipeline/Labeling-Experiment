@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4367,
+ "title": "HTPP client ignores direct H2C preface errors",
+ "body": "The `HttpClient` assumes that after a directH2C connection (without HTTP upgrade) has been established with the server, it will always be successfully interacting with an H2 server.\r\n\r\nWhen a server sends invalid data (from the client perspective), e.g a plain HTTP server, the client should handle this case and fail the connection result.\r\n\r\nSee https://github.com/eclipse-vertx/vert.x/issues/4254",
+ "created_at": "2022-05-10T08:13:13Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4368,
+   "created_at": "2022-05-10T08:21:14Z",
+   "merged_at": "2022-05-10T08:46:53Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-05-10T08:21:14+00:00"
+}

@@ -1,0 +1,32 @@
+{
+ "repo": "google/guava",
+ "number": 3861,
+ "title": "Release 28.2-jre on maven contains a spurious file",
+ "body": "During some minimization efforts on the previous released version 28.2-jre, I noticed a spurious file in the published version on maven central:\r\n\r\n```\r\ntn@proteus:~/Downloads$ unzip -l guava-28.2-jre.jar  | grep swp\r\n    16384  2019-09-18 17:29   com/google/common/collect/.ImmutableListMultimap.java.swp\r\n```\r\n\r\nLooks like an transient artefact from an editor that slipped into the release. It is not present in the android variant or in older releases (I checked at least 28.1-jre).\r\n\r\nMinor things that can not be changed anymore but maybe a trigger for improvement of future releases.\r\n\r\nEdit: I noticed that 29.0 has been released that does not contain this spurious file.",
+ "created_at": "2020-04-14T05:55:47Z",
+ "author_association": "NONE",
+ "labels": [],
+ "comments": [
+  {
+   "body": "Thanks -- will fix.",
+   "created_at": "2020-04-14T14:15:45Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Super, thanks!",
+   "created_at": "2020-04-15T14:21:05Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 3863,
+   "created_at": "2020-04-15T16:21:15Z",
+   "merged_at": "2020-04-15T17:05:25Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-04-15T16:21:15+00:00"
+}

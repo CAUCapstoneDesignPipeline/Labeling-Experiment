@@ -1,0 +1,49 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3873,
+ "title": "JsonArray of enums stream() emits Strings instead of Enums",
+ "body": "### Version\r\n\r\n4.0.3\r\n\r\n### Context\r\n\r\nJsonArray stream emits expected results for all boxed primitives and String, but not for enums.\r\n\r\n### Do you have a reproducer?\r\n\r\n```java\r\npublic class Test {\r\n    public static void main(String[] args) {\r\n        JsonArray array = new JsonArray().add(TimeUnit.DAYS).add(TimeUnit.MINUTES);\r\n        array.stream().map(t -> {\r\n            System.out.println(t +\": \" + t.getClass());\r\n            return t;\r\n        }).collect(Collectors.toList());\r\n    }\r\n}\r\n```\r\n\r\nresult:\r\n\r\n> Task :Test.main()\r\nDAYS: class java.lang.String\r\nMINUTES: class java.lang.String\r\n",
+ "created_at": "2021-03-26T09:55:25Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "After inspecting the code, I believe this was the desired behavior. The `stream()` will behave just like `getValue()` which will wrap all non JSON types, for `Enum` it will return it's `name()`, `Buffer/byte[]` will return bas64 strings.\r\n\r\nIf you really want to iterate the unmodified/unwrapped values you need to:\r\n\r\n```java\r\nJsonArray array = new JsonArray().add(TimeUnit.DAYS).add(TimeUnit.MINUTES);\r\narray\r\n// get the storage holder\r\n.getList()\r\n// the stream will now be the unmodified data\r\n.stream()\r\n.map(t -> {\r\n            System.out.println(t +\": \" + t.getClass());\r\n            return t;\r\n        }).collect(Collectors.toList());\r\n```\r\n\r\nWe should clarify this in the JavaDoc though.",
+   "created_at": "2021-03-26T15:57:58Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@vietj what's your oppinion, do you agree it should be a documentation fix, not a behavior bug?",
+   "created_at": "2021-03-26T15:58:37Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Maybe we should have a generic `unwrap()` both on `JsonArray` and `JsonObject` to clearly state that using it you get the unmodified data, this would deprecate the `JsonArray.getList()` and `JsonObject.getMap()` as those names could be confusing?",
+   "created_at": "2021-03-26T16:00:39Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I think that @pmlopes is right and this is what we want. If somebody wants raw value, `getList().stream()` can be called instead.",
+   "created_at": "2021-03-26T16:28:09Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I think we can leave like this for now, documentation just need to precise the contract",
+   "created_at": "2021-03-26T16:28:46Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 5,
+ "n_comments_total": 6,
+ "linked_prs": [
+  {
+   "number": 3874,
+   "created_at": "2021-03-29T09:22:20Z",
+   "merged_at": "2021-03-29T13:40:07Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-03-29T09:22:20+00:00"
+}

@@ -1,0 +1,69 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4464,
+ "title": "Allow vertx thread to be daemon",
+ "body": "#### Describe the feature\r\n\r\nAllow vertx thread to be daemon\r\n\r\n#### Use cases\r\n\r\nhttps://github.com/eclipse-vertx/vert.x/blob/2439c849549b08a1e7ffee8f09eae886c9fe88f6/src/main/java/io/vertx/core/impl/VertxImpl.java#L1144\r\n\r\nHere we force setting the daemon to false when creating vertx thread. The reason is to prevent JVM exit for embedded user as said in the comment.\r\nBut actually, the default thread factory will create non daemon threads, if users set a special thread factory to create daemon threads, they must have a reason. It does not make sense to reset the thread to non daemon under this scenario.\r\n\r\n#### Contribution\r\n\r\nThe change is very simple, just remove the `thread.setDaemon(false);` line. I can open a PR for this.",
+ "created_at": "2022-08-25T08:44:20Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "that's a good point, however a thread can be a daemon when the thread that constructed it is a daemon itself, e.g\r\n\r\n```java\r\n  public static void main(String[] args) throws Exception {\r\n    System.out.println(\"1 daemon=\" + new Thread().isDaemon());\r\n    Thread t1 = new Thread(() -> {\r\n      System.out.println(\"2 daemon=\" + new Thread().isDaemon());\r\n    });\r\n    t1.setDaemon(true);\r\n    t1.start();\r\n    System.in.read();\r\n  }\r\n```\r\n\r\nwe can provide a setting for configuring that though (e.g VertxOptions)",
+   "created_at": "2022-09-05T10:02:43Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "OK, check the code of VertxThreadFactory, the default implementation is not like JDK's DefaultThreadFactory...\r\n\r\n```\r\n  default VertxThread newVertxThread(Runnable target, String name, boolean worker, long maxExecTime, TimeUnit maxExecTimeUnit) {\r\n    return new VertxThread(target, name, worker, maxExecTime, maxExecTimeUnit);\r\n  }\r\n```\r\n\r\n```\r\n        public Thread newThread(Runnable r) {\r\n            Thread t = new Thread(group, r,\r\n                                  namePrefix + threadNumber.getAndIncrement(),\r\n                                  0);\r\n            if (t.isDaemon())\r\n                t.setDaemon(false);  // <===== here it will force set the daemon to false\r\n            if (t.getPriority() != Thread.NORM_PRIORITY)\r\n                t.setPriority(Thread.NORM_PRIORITY);\r\n            return t;\r\n        }\r\n```\r\n\r\nSo I think maybe could change the default implementation of VertxThreadFactory, to force set thread to non daemon. In this way we do not need to introduce a new config then since we have already support users to specify a customized thread factory.\r\n\r\nWDYT?\r\n\r\nThanks.",
+   "created_at": "2022-09-06T04:15:25Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I don't think so, that should be a configurable option, e.g `DefaultThreadFactory` make this configurable:\r\n\r\n```java\r\n    public Thread newThread(Runnable r) {\r\n        Thread t = newThread(FastThreadLocalRunnable.wrap(r), prefix + nextId.incrementAndGet());\r\n        try {\r\n            if (t.isDaemon() != daemon) {\r\n                t.setDaemon(daemon);\r\n            }\r\n\r\n            if (t.getPriority() != priority) {\r\n                t.setPriority(priority);\r\n            }\r\n        } catch (Exception ignored) {\r\n            // Doesn't matter even if failed to set.\r\n        }\r\n        return t;\r\n    }\r\n```\r\n",
+   "created_at": "2022-09-06T08:21:17Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "OK.\r\n\r\nSo here we plan to add a new option in VertxOptions? Then how could we pass this option to VertxThreadFactory? Add a new parameter called `daemon` for the newVertxThread method?",
+   "created_at": "2022-09-06T09:31:18Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "`VertxThreadFactory` has init method that is passed the builder from which options can be obtained.\r\n\r\nSo implementations can use it and keep it:\r\n\r\n```java\r\n  VertxThreadFactory INSTANCE = new VertxThreadFactory() {\r\n    boolean daemon;\r\n    @Override\r\n    public void init(VertxBuilder builder) {\r\n      VertxThreadFactory.super.init(builder);\r\n      daemon = // Read config\r\n    }\r\n  };\r\n```\r\n\r\nwe would however remove the default method `newVertxThread` that does not take it in account (breaking change but well).",
+   "created_at": "2022-09-06T13:22:16Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Looking at the comment here\r\n\r\nhttps://github.com/eclipse-vertx/vert.x/blob/2439c849549b08a1e7ffee8f09eae886c9fe88f6/src/main/java/io/vertx/core/spi/VertxServiceProvider.java#L26\r\n\r\n```\r\n/**\r\n * Entry point for loading Vert.x SPI implementations.\r\n *\r\n * @author <a href=\"mailto:julien@julienviet.com\">Julien Viet</a>\r\n */\r\npublic interface VertxServiceProvider {\r\n\r\n  /**\r\n   * Let the provider initialize the Vert.x builder.\r\n   *\r\n   * @param builder the builder\r\n   */\r\n  void init(VertxBuilder builder);\r\n\r\n}\r\n```\r\n\r\nIt seems that the init method is used to initialize the builder, not for initializing the ServiceProvider?",
+   "created_at": "2022-09-06T13:29:26Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I think it can be used for that purpose.",
+   "created_at": "2022-09-07T07:06:32Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "> I think it can be used for that purpose.\r\n\r\nOK, then I think we should change the above javadoc. And we also need to document out which fields of the `builder` can be used in this method, as per initialization order, some fields of the `builder` will be null as we haven't initialized them yet.\r\n\r\nIf no other concerns, I could try to open a PR for this if you do not mind @vietj .\r\n\r\nThanks for the helping here!",
+   "created_at": "2022-09-07T08:06:42Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Feel free to open a PR, I will review it.",
+   "created_at": "2022-09-07T08:37:39Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 9,
+ "n_comments_total": 10,
+ "linked_prs": [
+  {
+   "number": 4474,
+   "created_at": "2022-09-08T14:54:24Z",
+   "merged_at": "2022-11-14T13:08:51Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-09-08T14:54:24+00:00"
+}

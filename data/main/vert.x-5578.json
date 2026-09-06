@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5578,
+ "title": "Handshake timeout timer is not cancelled after a successful handshake",
+ "body": "Should `if (timer > 0L) {` be changed to `if (timer >= 0L) {` in Http1xClientConnection.java?\r\n\r\nWhen I set .setTimeout(timeout) in my websocket client, the very first  call to `vertx.setTimer(handshakeTimeout, id -> closeInternal())` returns `0`. \r\nBecause of that, the timer is not cancelled after and closes connection - after a successful handshake.\r\n\r\nI am able to avoid this by initializing the timer counter before websocket connection setup: `vertx.cancelTimer(vertx.setTimer(1, ignored -> {}));`.\r\n\r\nIs there some other configuration that I might be missing, that helps to avoid this behaviour?\r\n\r\n_https://github.com/eclipse-vertx/vert.x/pull/4324#discussion_r2105792813_\r\n            ",
+ "created_at": "2025-05-24T11:42:48Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 5584,
+   "created_at": "2025-05-30T18:50:08Z",
+   "merged_at": "2025-05-30T23:43:15Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-05-30T18:50:08+00:00"
+}

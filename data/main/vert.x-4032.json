@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4032,
+ "title": "Promises/futures with context do not always use context exception handler",
+ "body": "### Version\r\n\r\n4.1.2\r\n\r\n### Description\r\n\r\nIf a promise is completed or failed, any handler attached to the associated future may throw an exception. How that exception is handled currently depends on several factors:\r\n\r\n1. Future has a context, but the future is completed/failed on a different context:\r\n    * Behavior: The exception is given to context.reportException() and does not bubble up.\r\n2. Future has a context, and the future is completed/failed on that context:\r\n    * Behavior: The exception bubbles up to whatever completed/failed the promise.\r\n3. Future does not have a context:\r\n    * Behavior: The exception bubbles up to whatever completed/failed the promise.\r\n\r\nThe behavior of situation 2 should match 1. But it currently matches 3. This behavior is due to the if() statement at https://github.com/eclipse-vertx/vert.x/blob/4.1.2/src/main/java/io/vertx/core/impl/future/FutureBase.java#L50.\r\n\r\nSee #1568 for the discussion that led to the creation of this issue.",
+ "created_at": "2021-07-22T22:15:09Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 6,
+ "linked_prs": [
+  {
+   "number": 4034,
+   "created_at": "2021-07-26T10:17:10Z",
+   "merged_at": "2021-07-26T10:37:45Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-07-26T10:17:10+00:00"
+}

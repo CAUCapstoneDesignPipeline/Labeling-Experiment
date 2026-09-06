@@ -1,0 +1,41 @@
+{
+ "repo": "google/guava",
+ "number": 7957,
+ "title": "TypeToken#getRawType allocates a lot",
+ "body": "### Guava Version\n\n33.4.8-jre\n\n### Description\n\nTypeToken#getRawType is needlessly expensive for TypeToken instances where the runtime type is already a Class; it allocates an ImmutableSet builder, a TypeVisitor. Ideally for Class / ParameterizedType, no allocations would occur.\n\n### Example\n\n```java\nTypeToken.of(Object.class).getRawType(); // ideally shouldn't allocate\nnew TypeToken<List<Object>>(){}.getRawType(); // ideally shouldn't allocate, or should allocate less\n```\n\n### Expected Behavior\n\nI would not expect `getRawType` to allocate so heavily for trivial TypeTokens.\n\n### Actual Behavior\n\nSeveral GBs of allocations observed in a 3 minute profile from a production application, or 1% of allocations.\n\n### Packages\n\ncom.google.common.reflect\n\n### Platforms\n\n_No response_\n\n### Checklist\n\n- [x] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [x] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\n",
+ "created_at": "2025-08-29T21:54:31Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "package=reflect",
+  "type=performance",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Thanks, I recall seeing `getRawType` as a method that also spends a small but noticeable amount of CPU in our fleet (though negligible steady-state RAM), and we've had an issue open for years now to maybe look into it. (The CPU spent in the method in our fleet has decreased over those years, so we haven't in fact looked into it.) Do you know if your \"1% of allocations\" number is specifically for trivial `TypeToken` instances or for all `TypeToken` instances? (We had also found that a large majority of our `TypeToken` instances were from parameterized types.) My hope in either case would be that the allocations never leave the Eden space and that they end up having minimal impact on overall app performance. But it's hard to know for sure without benchmarking a real app.\n\nAll that said, if it's possible to make the implementation perform a lot better without making it much more complicated, we'd probably be up for taking a PR (though no guarantees, sadly). I'm just unsure that we'd do anything ourselves yet (though this report makes it a little more likely than it's been for the past five years).",
+   "created_at": "2025-08-30T17:31:25Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "> Do you know if your \"1% of allocations\" number is specifically for trivial `TypeToken` instances or for all `TypeToken` instances? (We had also found that a large majority of our `TypeToken` instances were from parameterized types.)\n\nActually that I'm not sure of. It's likely a mixture of trivial tokens and ones with parameterized types. Seems like in either case it allocates a lot more than needed due to the `TypeVisitor`, etc. I can try to come up with an improvement here but the easiest thing to do would be to just special case `getRawType` for `Class` and `ParameterizedType`, any concerns there?",
+   "created_at": "2025-09-03T17:08:17Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "That sounds like a good thing to try to me.",
+   "created_at": "2025-09-03T17:14:03Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 3,
+ "n_comments_total": 4,
+ "linked_prs": [
+  {
+   "number": 7967,
+   "created_at": "2025-09-03T18:16:23Z",
+   "merged_at": "2025-09-03T18:39:33Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-09-03T18:16:23+00:00"
+}

@@ -1,0 +1,49 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4971,
+ "title": "Memory optimization",
+ "body": "There is a memory optimization that can be used in Vert.x in several places.\r\nFor example, here: \r\n`io.vertx.core.impl.VertxImpl.InternalTimerHandler`\r\n`private final AtomicBoolean disposed = new AtomicBoolean();`\r\n`AtomicBoolean` is quite a heavy object (many times bigger than volatile boolean)\r\nIt can be replaced with `VarHandle`. The `VarHandle` has all the same operations, but it is a static field member of a class and in object there is only a volatile byte or int field. You can see this technic in JDK \r\n`java.util.concurrent.FutureTask#set`\r\n\r\nReplacing `Atomic`* with `VarHandle` and `volatile` in libraries makes sense.\r\nIt dramatically reduces the memory footprint without disadvantages.\r\n\r\n\r\nI could make a PR for InternalTimerHandler.",
+ "created_at": "2023-11-26T13:12:58Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "yes perhaps that could be useful for `InternalTimerHandler` because we create a lot of them\r\n\r\n@franz1981 are you aware of any performance implications on using Varhandle vs atomicboolean for CAS?",
+   "created_at": "2023-12-01T16:55:07Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@tsegismont I am not an expert as the famous @franz1981 is, but I can add: Atomic* uses VarHandle internally (sometimes still mixed with Unsafe 😅 ). You can copy the working code directly from an Atomic* implementation. The only disadvantage I know: more code on your side.\r\n\r\n![varhandle](https://github.com/eclipse-vertx/vert.x/assets/362366/6b294bb2-8a0e-4c16-8f48-825363407d42)\r\n\r\nPS: @franz1981 A humble question to you 🙏 \r\nWhy do they use `volatile int` in AtomicBoolean instead of `volatile byte`? \r\n- `int` is faster than `byte`\r\n- `VarHandle` doesn't work with `byte`\r\n- `byte` has no sense because of JVM field alignment\r\n- they don't care 4 bytes or 1 byte",
+   "created_at": "2023-12-01T17:00:58Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@franz1981 Could you help please ",
+   "created_at": "2023-12-08T12:11:59Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I think https://github.com/openjdk/jdk/blob/701bc3bbbe49a46aea7efc195463cc2efd64a785/src/java.base/share/classes/jdk/internal/vm/SharedThreadContainer.java#L46 shows that you could use byte-level var handle, but if you use Java Object Layout to print the layout of AtomicBoolean, having less than int doesn't improve the footprint of the class (which are usually aligned at 8-16 bytes in size AND have different aligned layout based on the class header size). So they didn't see any value to change it to use a boolean/byte.",
+   "created_at": "2023-12-08T13:45:34Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@franz1981 ❤🙏\r\nIn case of AtomicBoolean this is obvious. I mean for Vert.x classes with more than one field",
+   "created_at": "2023-12-08T14:54:19Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 5,
+ "n_comments_total": 7,
+ "linked_prs": [
+  {
+   "number": 5990,
+   "created_at": "2026-02-21T21:08:48Z",
+   "merged_at": "2026-04-22T12:00:10Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-02-21T21:08:48+00:00"
+}

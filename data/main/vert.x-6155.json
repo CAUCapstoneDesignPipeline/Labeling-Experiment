@@ -1,0 +1,29 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6155,
+ "title": "HTTP/1.1 response written from an exception handler is discarded before reaching the client",
+ "body": "### Version\n\n5.0.x – 5.2.0-SNAPSHOT\n\n### Context\n\nWhen an HTTP/1.1 server has `setDecompressionSupported(true)` and receives a body that fails to decompress (Netty's `HttpContentDecompressor` throws `DecoderException`), a response written from `request().exceptionHandler()` never reaches the client — the client sees a connection reset instead of the intended error response.\n\n**Note:** I used AI tooling to help investigate and draft this report and the fix. I've reviewed, tested, and verified everything myself and am happy to discuss any part of it.\n\n### Steps to reproduce\n\n  **Affected:** Vert.x 5.0.x – 5.2.0-SNAPSHOT — HTTP/1.1 server with `setDecompressionSupported(true)`.\n\n  **1. Start a server that answers decode failures from the request exception handler:**\n\n  ```java\n  import io.vertx.core.Vertx;\n  import io.vertx.core.http.HttpServerOptions;\n\n  public class Repro {\n    public static void main(String[] args) {\n      Vertx vertx = Vertx.vertx();\n      vertx.createHttpServer(new HttpServerOptions().setDecompressionSupported(true))\n        .requestHandler(req -> {\n          req.exceptionHandler(err -> {\n            if (!req.response().ended()) {\n              req.response().setStatusCode(400).end(\"bad encoding: \" + err.getMessage());\n            }\n          });\n          req.bodyHandler(body -> req.response().end()); // not reached for a malformed body\n        })\n        .listen(8080)\n        .await();\n      System.out.println(\"listening on http://localhost:8080\");\n    }\n  }\n  ```\n\n  **2. Send a body declared `Content-Encoding: gzip` whose gzip header is valid but whose payload is corrupted**, so `HttpContentDecompressor` fails mid-decode:\n\n  ```bash\n  # valid gzip, then corrupt 10 bytes of the deflate payload (past the 10-byte header)\n  printf 'hello world this is a test payload for decompression' | gzip > /tmp/body.gz\n  dd if=/dev/urandom of=/tmp/body.gz bs=1 seek=10 count=10 conv=notrunc 2>/dev/null\n\n  curl -sv --data-binary @/tmp/body.gz -H 'Content-Encoding: gzip' http://localhost:8080/\n  ```\n\n  **Expected** — the client receives the response written by the exception handler:\n\n  ```\n  < HTTP/1.1 400 Bad Request\n  ...\n  bad encoding: ...\n  ```\n\n  **Actual (before the fix)** — the connection closes before the response is flushed; the client gets no response:\n\n  ```\n  curl: (52) Empty reply from server      # or: curl: (56) Recv failure: Connection reset by peer\n  ```\n  ### Proposed fix\n\n  Root cause: `VertxHandler.exceptionCaught` dispatches the throwable to the user handlers and then calls `chctx.close()` **without flushing**, so the response queued by the handler is discarded by Netty's `ChannelOutboundBuffer` when the channel closes.\n\n  Routing the close through the channel makes it traverse the pipeline tail and go through `VertxHandler#close` → `VertxConnection#writeClose` — the existing flush-then-close path already used by graceful shutdown, idle close and `close()`:\n\n  ```java\n  if (close) {\n    if (connection != null) {\n      chctx.channel().close();\n    } else {\n      chctx.close();\n    }\n  }\n  ```\n\n  I have a working patch (one line in `VertxHandler` + a regression test in `Http1xTest`) verified against `master`; it also applies to `5.1` (clean cherry-pick) and `5.0` (adapted, since `handleException` returns `void` there). Happy to open a PR if this direction looks right.\n\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-06-03T14:52:32Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "Would you mind sending a PR?",
+   "created_at": "2026-06-09T16:24:23Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 6177,
+   "created_at": "2026-06-10T11:08:01Z",
+   "merged_at": "2026-07-06T08:39:18Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-06-10T11:08:01+00:00"
+}

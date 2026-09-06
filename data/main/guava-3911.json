@@ -1,0 +1,32 @@
+{
+ "repo": "google/guava",
+ "number": 3911,
+ "title": "UnmodifiableMultimap.forEach inefficiently uses the default implementation",
+ "body": "`UnmodifiableMultimap.forEach` uses the `Multimap.forEach` default implementation which involves listing entries, and creating a new lambda instead of simply passing the BiConsumer through to the protected instance. This is safe to pass directly though because `forEach(BiConsumer)` is a read-only operation.",
+ "created_at": "2020-05-27T22:57:16Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "package=collect",
+  "type=performance",
+  "platform=java8",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Proposed solution: https://github.com/google/guava/pull/3912",
+   "created_at": "2020-05-27T23:03:20Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 3922,
+   "created_at": "2020-06-09T00:42:31Z",
+   "merged_at": "2020-06-09T01:09:32Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-06-09T00:42:31+00:00"
+}

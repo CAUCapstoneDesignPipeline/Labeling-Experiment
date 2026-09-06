@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6006,
+ "title": "Typo in the HTTP header documentation",
+ "body": "### Version\n\n5.0.0\n\n### Context\n\nHi, sorry for writing here, I a bit confused what is current web site repo.\n\nHere https://vertx.io/docs/vertx-core/java/#_request_authority as for now there is a typo, it is written\n\n```\nUse [authority](https://vertx.io/docs/apidocs/io/vertx/core/http/HttpServerRequest.html#authority--) to return the authority of the HTTP request.\n\nFor HTTP/1.x requests the host header is returned, for HTTP/1 requests the :authority pseudo header is returned.\n``` \nbut actually second sentence should contain HTTP/2\n\n### Steps to reproduce\n\n_No response_\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-03-03T18:55:04Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 5999,
+   "created_at": "2026-02-26T16:21:29Z",
+   "merged_at": "2026-03-17T20:12:17Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-02-26T16:21:29+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3523,
+ "title": "[DNS Client] Wrong IP when resolving many domain names (conflict)",
+ "body": "### Version\r\n\r\nvert.x 3.9.1\r\n\r\n### Context\r\n\r\nI encountered an unexpected response from the DNS Client while requesting ip for 4 domain names. Every x seconds, I'm checking the IP for 4 domaine names...\r\nSometimes I got an error `DNS query timeout for xxx` and the IP for the domain `xxx` is affected to another domain `yyy`\r\n\r\nThis is due to `inProgressMap` and the random id.\r\n\r\nDNS is using UDP, so the only way to know which answers corresponds to which query is by using id... So here we are caching queries in a map by their id.\r\nhttps://github.com/eclipse-vertx/vert.x/blob/f451dcde8f7908a00466ffa6f1d4712ac0fb0ce3/src/main/java/io/vertx/core/dns/impl/DnsClientImpl.java#L49-L51\r\n\r\nBut with random ids, we can possibly find the same twice in a row... \r\nhttps://github.com/eclipse-vertx/vert.x/blob/f451dcde8f7908a00466ffa6f1d4712ac0fb0ce3/src/main/java/io/vertx/core/dns/impl/DnsClientImpl.java#L297-L305\r\n\r\nAnd in this case, the previous query will be overridden :disappointed:.\r\nhttps://github.com/eclipse-vertx/vert.x/blob/f451dcde8f7908a00466ffa6f1d4712ac0fb0ce3/src/main/java/io/vertx/core/dns/impl/DnsClientImpl.java#L340-L353\r\n\r\n### Do you have a reproducer?\r\n\r\nYes, [MainVerticle.java](https://gist.github.com/Joxit/e96b036b81a27e7377763d1bdf307731)\r\n\r\n### Steps to reproduce\r\n\r\n1. Start your onw DNS server (do not DDoS Official DNS servers...) I'm using consul\r\n```sh\r\n# Start consul as daemon with docker\r\ndocker run -e CONSUL_ALLOW_PRIVILEGED_PORTS=true -d --name consul --network host consul agent -dev -dns-port=53\r\n# Register domain names for the reproducer\r\ndocker exec consul consul services register -name one -address 10.0.0.1\r\ndocker exec consul consul services register -name two -address 10.0.0.2\r\ndocker exec consul consul services register -name three -address 10.0.0.3\r\ndocker exec consul consul services register -name four -address 10.0.0.4\r\n```\r\n2. Start the MainVerticle\r\n3. In general the issue appear between 1 and 5 minutes. You will see something like `Wrong ip due to id conflict, received 10.0.0.3 instead of 10.0.0.4`\r\n\r\n### Extra\r\n\r\nOS: Debian 10.5 Buster :rocket: \r\nJava: OpenJDK 14\r\nDocker: 19.03.12 (for consul)\r\n\r\n### Solutions\r\n\r\nIn the [DNS Specification](https://tools.ietf.org/html/rfc2181) I found this:\r\n```\r\n4. Server Reply Source Address Selection\r\n\r\n   Most, if not all, DNS clients, expect the address from which a reply\r\n   is received to be the same address as that to which the query\r\n   eliciting the reply was sent.  This is true for servers acting as\r\n   clients for the purposes of recursive query resolution, as well as\r\n   simple resolver clients.  The address, along with the identifier (ID)\r\n   in the reply is used for disambiguating replies, and filtering\r\n   spurious responses.  This may, or may not, have been intended when\r\n   the DNS was designed, but is now a fact of life.\r\n```\r\n\r\nSo the common usage is to use both the ID and address.\r\n\r\n**First solution**:\r\nMove `inProgressMap` from `<Integer, Query>` map to <String, Query> map. The string can be something like `${id}/${address}`\r\n\r\n**Second solution**:\r\nMove `inProgressMap` from `<Integer, Query>` map to <Pair<Integer, String>, Query> map. This one requires more code but may be easier to maintain ?\r\n\r\n:warning: When your query looks like `one.service.consul` in the response (`DnsResponse`) it will be `one.service.consul.` with a final dot.",
+ "created_at": "2020-08-04T14:12:38Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "help wanted"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 3539,
+   "created_at": "2020-08-18T12:55:31Z",
+   "merged_at": "2020-08-22T07:15:27Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-08-18T12:55:31+00:00"
+}

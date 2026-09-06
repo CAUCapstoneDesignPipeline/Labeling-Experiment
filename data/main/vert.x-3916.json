@@ -1,0 +1,124 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3916,
+ "title": "Wrong implementation of how to identify cookies",
+ "body": "### Version\r\n\r\nVersion: 4.0.3\r\n\r\n### Context\r\n\r\n[RFC 6265 HTTP State Management Mechanism, 5.3 Storage Model, Step 11](https://datatracker.ietf.org/doc/html/rfc6265#section-5.3) defines the tuple (name, domain, path) as the cookie identifier. \r\nHowever, the implementation of [Http1xServerResponse](https://github.com/eclipse-vertx/vert.x/blob/4.0.3/src/main/java/io/vertx/core/http/impl/Http1xServerResponse.java#L787) and [Http2ServerResponse](https://github.com/eclipse-vertx/vert.x/blob/4.0.3/src/main/java/io/vertx/core/http/impl/Http2ServerResponse.java#L716) use only the cookie name as identifier.\r\n\r\n### Steps to reproduce\r\n\r\n1. Set two cookies with the same name but different path in a response header with\r\n```java\r\npublic void handle(RoutingContext ctx) {\r\n  Cookie cookie = Cookie.cookie(\"SOME_NAME\", \"foo\").setPath(\"/\");\r\n  Cookie sameCookieWithDifferentPath = Cookie.cookie(\"SOME_NAME\", \"bar\").setPath(\"/somePath\");\r\n\r\n  ctx.response().addCookie(cookie);\r\n  ctx.response().addCookie(sameCookieWithDifferentPath);\r\n  ctx.response().end();\r\n}\r\n```\r\n2. Expect 2 cookies on the client, but only get 1.",
+ "created_at": "2021-05-10T11:25:20Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "assigned to you @pmlopes ",
+   "created_at": "2021-05-10T12:35:08Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "This one is tricky to solve. Given that the uniqueness should be the tuple (name + domain + path) and the public API exposes just a simple `Map`, we either need to break and change it to be a `MultiMap` or define a well-known format for looking up cookies. \r\n\r\nSay that we define that the key in the map is the string `NAME/PATH` which is trivial to split as the path begins on the first `/`, it makes the lookup and removal more expensive as we need to consider using a `TreeMap` and perform `subMap(key, key + Character.MAX_VALUE)` to create a view filtering the prefix, and then we still need to decide how to handle more than 1 entry.",
+   "created_at": "2021-05-10T15:04:20Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I would rather not do some string magic to create a key. Simply, because these values may already contains the meta character we would use.\r\n\r\nI would rather:\r\n* Create a `Tuple` object, wrapping name, domain and path, that we would use as a key i.e. `Map<Tuple, ServerCookie>`.  `Tuple` would be a new class implementing the `Comparable` interface, overwriting the `equals` method and maybe the `hashCode` method.\r\n* Create a map of maps of maps i.e. `Map<String, Map<String, Map<String, ServerCookie>>>`. A cookie retrieval would then look like `ServerCookie cookie = cookies().get(name).get(domain).get(path)` (of course with some careful checks in between when there is no such value). Actually [guava](https://github.com/google/guava/wiki/NewCollectionTypesExplained#table) does provide this functionality.\r\n\r\nHowever, I don't think we can circumvent breaking the public API.\r\n\r\n_Addendum:_\r\nFor the sake of talking about the same topic, I consider the following as the public API regarding cookies:\r\n\r\n[HttpClientResponse.java](https://github.com/eclipse-vertx/vert.x/blob/4.0.3/src/main/java/io/vertx/core/http/HttpClientResponse.java)\r\n```java\r\n  /**\r\n   * @return the Set-Cookie headers (including trailers)\r\n   */\r\n  @CacheReturn\r\n  List<String> cookies();\r\n```\r\n\r\n[HttpServerRequest.java](https://github.com/eclipse-vertx/vert.x/blob/4.0.3/src/main/java/io/vertx/core/http/HttpServerRequest.java)\r\n```java\r\n  /**\r\n   * Get the cookie with the specified name.\r\n   *\r\n   * @param name  the cookie name\r\n   * @return the cookie\r\n   */\r\n  default @Nullable Cookie getCookie(String name) {\r\n    return cookieMap().get(name);\r\n  }\r\n\r\n  /**\r\n   * @return the number of cookieMap.\r\n   */\r\n  default int cookieCount() {\r\n    return cookieMap().size();\r\n  }\r\n\r\n  /**\r\n   * @return a map of all the cookies.\r\n   */\r\n  Map<String, Cookie> cookieMap();\r\n```\r\n\r\n[HttpServerResponse.java](https://github.com/eclipse-vertx/vert.x/blob/4.0.3/src/main/java/io/vertx/core/http/HttpServerResponse.java)\r\n```java\r\n  /**\r\n   * Add a cookie. This will be sent back to the client in the response.\r\n   *\r\n   * @param cookie  the cookie\r\n   * @return a reference to this, so the API can be used fluently\r\n   */\r\n  @Fluent\r\n  HttpServerResponse addCookie(Cookie cookie);\r\n\r\n\r\n  /**\r\n   * Expire a cookie, notifying a User Agent to remove it from its cookie jar.\r\n   *\r\n   * @param name  the name of the cookie\r\n   * @return the cookie, if it existed, or null\r\n   */\r\n  default @Nullable Cookie removeCookie(String name) {\r\n    return removeCookie(name, true);\r\n  }\r\n\r\n  /**\r\n   * Remove a cookie from the cookie set. If invalidate is true then it will expire a cookie, notifying a User Agent to\r\n   * remove it from its cookie jar.\r\n   *\r\n   * @param name  the name of the cookie\r\n   * @return the cookie, if it existed, or null\r\n   */\r\n  @Nullable Cookie removeCookie(String name, boolean invalidate);\r\n```",
+   "created_at": "2021-05-11T10:31:45Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Btw It would be nice to have the add/remove functionality that exists in `HttpServerResponse` in `HttpClientRequest` as well.",
+   "created_at": "2021-05-11T10:36:13Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@fbuetler the concern here is to reduce the blast radius of the change. I do agree that a better structure would be a better fit, I am just brainstorming how we can achieve this with the last amount of breakage.\r\n\r\nI believe that the current API works for the most general use case, the API follows the nodejs style of having a single map based on the cookie name.\r\n\r\nHowever, I understand that this isn't flexible enough to comply with the official spec. Let's try to figure out a way where the breakage is the least.\r\n\r\nIf we keep the cookies internally in a `MultiMap` then we don't lose the overlap of cookie name, lookup and removal can still be complex as we need to perform the lookup internally.\r\n\r\nIf we keep the cookies in a `MultiMap` lookup by name is still trivial as all cookies with the same name are grouped into a single bucket, it only gets complex for your specific case where you need a helper that returns all cookies for a given name. e.g.: `List<Cookie> getAllCookies(String name)`.\r\n\r\nAnd to avoid ambiguity in removal a `removeCookie(Cookie[, boolean])` method should be added to explicitly match, instead of removing all cookies that match the name.",
+   "created_at": "2021-05-11T12:13:23Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Just to reiterate what you said, to ensure I understood everything correctly:\r\n\r\nYou propose to change the public API as follows (only the changes shown from the public API shown above):\r\n\r\nEDIT: removed javadocs to improve readabilty.\r\n\r\nHttpClientResponse.java\r\n\r\n```java\r\n// nothing to change here\r\n```\r\n\r\nHttpServerRequest.java\r\n\r\n```java\r\n  @Nullable List<Cookie> getCookies(String name);\r\n  MultiMap<String, Cookie> cookieMultiMap();\r\n```\r\n\r\nHttpServerResponse.java\r\n\r\n```java\r\n  List<Cookie> removeCookie(String name);\r\n  List<Cookie> removeCookie(String name, boolean invalidate);\r\n\r\n  @Nullable Cookie removeCookie(Cookie cookie);\r\n  @Nullable Cookie removeCookie(Cookie cookie, boolean invalidate);\r\n```\r\n\r\nThe breaking change in the code would then only be the return type of some methods (i.e. `List<Cookie>` instead of `Cookie` and `MultiMap<String, Cookie>` instead of `Map<Cookie>`). \r\n\r\nAnother breaking change would be the semantics of `removeCookie(name, invalidate)`. \r\n\r\n",
+   "created_at": "2021-05-12T09:37:48Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I think we can reduce the break even further if we do:\r\n\r\n**HttpServerRequest.java**\r\n\r\n```java\r\n// original API remains\r\n@Nullable Cookie getCookie(String name);\r\nint cookieCount()\r\nMap<String, Cookie> cookieMap();\r\n\r\n// new API\r\n@Nullable List<Cookie> getCookies(String name);\r\nMultiMap<String, Cookie> cookies();\r\n```\r\n\r\nThis way no code will break for users upgrading to 4.1\r\n\r\n**HttpServerResponse.java**\r\n\r\n```java\r\n// original API remains\r\n@Fluent\r\nHttpServerResponse addCookie(Cookie cookie);\r\n\r\n// This one must go as we can't have override of returns in java\r\n@Nullable Cookie removeCookie(String name);\r\n@Nullable Cookie removeCookie(String name, boolean);\r\n\r\n// extra API\r\nList<Cookie> removeCookie(String name);\r\nList<Cookie> removeCookie(String name, boolean);\r\n\r\n@Nullable Cookie removeCookie(Cookie cookie);\r\n@Nullable Cookie removeCookie(Cookie cookie, boolean);\r\n```",
+   "created_at": "2021-05-12T11:51:11Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Based on what would you then decide what cookie you need to return by `getCookie(String name)` in the original API? To keep the original semantics, we would need to store the most recent cookie explicitly and return this.\r\n\r\nAnd also how would the Map, returned by `cookieMap()`, look like?\r\n",
+   "created_at": "2021-05-12T12:04:26Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "`getCookie()` would just return the 1st cookie matching the given name, so the behavior would be the same as before and the `cookieMap()` just hides the multimap by returning again only the 1st entry, so the behavior is again the same as before.\r\n\r\nFinally, the remove by `String` wipes the full matching list which again matches the old behavior and respects the contract of returning the list of matched cookies.",
+   "created_at": "2021-05-12T12:15:30Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "> getCookie() would just return the 1st cookie matching the given name, so the behavior would be the same as before and the cookieMap() just hides the multimap by returning again only the 1st entry, so the behavior is again the same as before.\r\n\r\nThis only holds when we use an implementation of `MultiMap` that preserves the ordering of values for a given key agreeing with the order in which the values were added (like `ArrayListMultimap`, `LinkedHashMultimap`, `LinkedListMultimap`). And we would need to return the last element to have the most recent one. Otherwise, some inconsistencies may appear:\r\n\r\n```java\r\nCookie cookie = new Cookie(\"foo\", \"bar\").setPath(\"/\");\r\nCookie sameCookieWithDifferentValueAndPath = new Cookie(\"foo\", \"baz\").setPath(\"/blub\");\r\n\r\naddCookie(cookie);\r\naddCookie(sameCookieWithDifferentValue);\r\n\r\n// the MutliMap would look like: \"foo\" -> [cookie, sameCookieWithDifferentValueAndPath]\r\n\r\nSystem.out.println(getCookie(\"foo\").encode());\r\n\r\n// one with the old API would expect the output to be \"{'foo': 'baz', 'path': '/blub'}\"\r\n// but it could return \"{'foo': 'bar', 'path': '/'}\", if the order is not respected.\r\n```\r\n\r\nSame applies to `cookieMap()`.\r\n\r\n> Finally, the remove by String wipes the full matching list which again matches the old behavior and respects the contract of returning the list of matched cookies.\r\n\r\nI agree with this one.",
+   "created_at": "2021-05-12T13:14:17Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I may have made a mistake by mixing request and response methods in my argument above.",
+   "created_at": "2021-05-12T13:22:46Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "```java\r\n// a simple multimap like this will preserve the insert order:\r\nMap<String, List<Cookie>> map = new HashMap<>();\r\nmap.computeIfAbsent(l -> new ArrayList<Cookie>()).add(cookie);\r\n```\r\n\r\nalso looking at the current implementation, in order to preserve the behavior instead of \"first\" element in the list we should return the \"last\":\r\n\r\n```java\r\n// CookieImpl\r\n...\r\n      Map<String, ServerCookie> cookies = new HashMap<>(nettyCookies.size());\r\n      for (io.netty.handler.codec.http.cookie.Cookie cookie : nettyCookies) {\r\n        ServerCookie ourCookie = new CookieImpl(cookie);\r\n        cookies.put(ourCookie.getName(), ourCookie);\r\n      }\r\n```",
+   "created_at": "2021-05-12T13:26:20Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Agreed in both points (code snippet about multimap and first vs last).",
+   "created_at": "2021-05-12T13:30:32Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Having a second look we can avoid breaking at all by doing:\r\n\r\n**HttpServerResponse.java**\r\n\r\n```java\r\n// original API\r\n\r\n@Fluent\r\nHttpServerResponse addCookie(Cookie cookie);\r\n// This one should be deprecated\r\n@Deprecated @Nullable Cookie removeCookie(String name);\r\n@Deprecated @Nullable Cookie removeCookie(String name, boolean);\r\n\r\n// new API\r\n\r\n// note the plural naming here to avoid conflict with the deprecated one\r\n// and better express the API intent as the return is now a list\r\nList<Cookie> removeCookies(String name);\r\nList<Cookie> removeCookies(String name, boolean);\r\n\r\n// similar to the old API but given a Cooke to remove to explicitly remove a match, not any cookie\r\n// whose name matches\r\n@Nullable boolean removeCookie(Cookie cookie);\r\n@Nullable boolean removeCookie(Cookie cookie, boolean);\r\n```\r\n\r\nThis way we avoid any breaking at the API level with existing code and allow 3 releases to users to migrate to the new `removeCookie()` for the deprecated methods.",
+   "created_at": "2021-05-12T14:44:29Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@vietj I think we have a good compromise here. We deprecate 2 methods, and introduce 6 new ones to handle all the extra cases as per RFC spec. WDYT? ",
+   "created_at": "2021-05-12T14:48:45Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "actually shouldn't we move then to something like\r\n```java\r\n@Nullable boolean removeCookie(String name, String domain, String path);\r\n@Nullable boolean removeCookie(String name, String domain, String path, boolean invalidate);\r\n```\r\nas knowing the maxAge, secure, httpOnly attributes is quite hard.",
+   "created_at": "2021-05-12T14:50:29Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Just to keep it all in sync:\r\n\r\n```java\r\n// original API\r\n\r\n@Fluent\r\nHttpServerResponse addCookie(Cookie cookie);\r\n// These ones should be deprecated\r\n@Deprecated @Nullable Cookie removeCookie(String name);\r\n@Deprecated @Nullable Cookie removeCookie(String name, boolean);\r\n// this doesn't properly map all cookies\r\n@Deprecated Map<String, Cookie> getCookies();\r\n\r\n// new API\r\n\r\n// alternative to `getCookies()`, Unless we also enhance Vert.x MultiMap to allow Map<String, List<Cookie>>\r\nList<Cookies> cookies();\r\n\r\n// note the plural naming here to avoid conflict with the deprecated one\r\n// and better express the API intent as the return is now a list\r\nList<Cookie> removeCookies(String name);\r\nList<Cookie> removeCookies(String name, boolean);\r\n\r\n// similar to the old API but given a Cookie unique tuple to explicitly remove a match, not any cookie\r\n// that matches by name\r\n@Nullable Cookie removeCookie(String name, String domain, String path);\r\n@Nullable Cookie removeCookie(String name, String domain, String path, boolean invalidate);\r\n```\r\n\r\nJust updated the return from `boolean` to `Cookie` as we may want to work with the removed `Cookie` after removal, for example we use this during the `SessionHandler` to force a removal from the user agent.",
+   "created_at": "2021-05-14T10:34:49Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I need to review this again and read the entire conversation",
+   "created_at": "2021-05-19T09:42:51Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "this looks good to me, I'm not sure we need to deprecate methods though as they still seem valid to me",
+   "created_at": "2021-05-27T09:21:23Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "this looks fine to me, however I think we don't need to deprecate `removeCookie(String name)` and instead just say that this will remove the first `Cookie` occurence and explain that this might not be correct in some situations and advocate to use the more precision implementation.\r\n\r\nwe could also overload `List<Cookies> cookies()` with `List<Cookies> cookies(String name)`",
+   "created_at": "2021-05-31T07:25:11Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 20,
+ "n_comments_total": 20,
+ "linked_prs": [
+  {
+   "number": 4105,
+   "created_at": "2021-09-22T19:13:13Z",
+   "merged_at": "2021-10-18T07:48:24Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-09-22T19:13:13+00:00"
+}

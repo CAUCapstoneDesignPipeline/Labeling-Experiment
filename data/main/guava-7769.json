@@ -1,0 +1,40 @@
+{
+ "repo": "google/guava",
+ "number": 7769,
+ "title": "MethodHandle.invoke and MethodHandle.invokeExact are only supported starting with Android O (--min-api 26)",
+ "body": "### Guava Version\n\n33.4.7-jre\n\n### Description\n\nThe latest version of Guava uses `MethodHandle` which is only available in Android API 26 or later. My app supports API 21 at the minimum, and it uses the latest release of Guava to patch a security vulnerability, only now it won't build because Guava uses methods that are not supported in the minimum SDK version. And I have no desire to increase it in my app.\n\n### Example\n\n```java\nAny Android app with minimum SDK version lower than 26, using the latest version of Guava, would suffice. Here's a PR build from my repo that failed:\nhttps://github.com/JordanLongstaff/ArtemisAgent/actions/runs/14347309233/job/40219434611?pr=189\n```\n\n### Expected Behavior\n\nApp should still build as normal.\n\n### Actual Behavior\n\nApp cannot build because of `MethodHandle`. See the link in the example for more info.\n\n### Packages\n\n_No response_\n\n### Platforms\n\nAndroid\n\n### Checklist\n\n- [x] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [x] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\n",
+ "created_at": "2025-04-09T04:53:11Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=defect",
+  "P1"
+ ],
+ "comments": [
+  {
+   "body": "Sorry, our internal toolchain must handle things differently, as we're able to build for minSdkVersion 21 there. (We should ideally set up an external test for this.) Thanks for the fast report of this. I'll look when I start work in an hour or two.",
+   "created_at": "2025-04-09T11:04:19Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I haven't gotten the build running locally yet, though I made a little progress:\n\n```\n/tmp/tmp.wPQ8gN60RZ/ArtemisAgent/keystore.properties (No such file or directory)\n```\n\nSo:\n\n```\nprintf '%s=X\\n' keyAlias keyPassword storePassword storeFile > keystore.properties\n```\n\nBut now:\n\n```\n* What went wrong:\nA problem occurred configuring project ':IAN:annotations:konsist'.\n> Failed to apply plugin 'org.gradle.software-reporting-tasks'.\n   > Could not create task ':IAN:annotations:konsist:outgoingVariants'.\n      > Could not create task of type 'OutgoingVariantsReportTask'.\n         > Could not create an instance of type org.gradle.api.tasks.diagnostics.internal.configurations.ConfigurationReportsImpl.\n            > Could not create an instance of type org.gradle.api.reporting.internal.DefaultReportContainer.\n               > Type T not present\n```\n\n\\[edit: This might have been a problem running with JDK 24, specifically in combination with Kotlin (rather than Groovy)?\\]\n\nBut [a search](https://github.com/search?q=%2233.4.7-android%22&type=pullrequests) got me to [a PR for another Android app](https://github.com/mathisdt/trackworktime/pull/328), which [also has the problem](https://github.com/mathisdt/trackworktime/actions/runs/14348596402/job/40222956904?pr=328#step:5:494), as you'd pointed out. I can reproduce the problem there with `JAVA_HOME=$HOME/.m2/jdks/jdk-17.0.13+11 ANDROID_HOME=$HOME/android-sdk-linux ./gradlew build`, so I'll iterate with that.\n\nAs for what I'll do about this: I _might_ just forget about using `VarHandle` from `guava-android`, instead making the code try `AtomicReferenceFieldUpdater` before `Unsafe` on the JVM. But I'll see what else I can figure out....",
+   "created_at": "2025-04-09T12:56:57Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Hmm, maybe this is only an issue before AGP 7.4: http://issuetracker.google.com/issues/174733673#comment12?\n\nBut no, the app I'm testing with is using 8.3.1: https://github.com/mathisdt/trackworktime/blob/7f38ecc8c0b1f0eb396fec94b47e1ca0cae6b085/build.gradle#L9.\n\nhttp://issuetracker.google.com/issues/174733673#comment13 suggests that the issue is fixed at the compiler level but needs a change in the plugin itself: http://issuetracker.google.com/issues/320207221.",
+   "created_at": "2025-04-09T13:09:38Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 3,
+ "n_comments_total": 8,
+ "linked_prs": [
+  {
+   "number": 7770,
+   "created_at": "2025-04-09T15:30:03Z",
+   "merged_at": "2025-04-12T13:08:52Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-04-09T15:30:03+00:00"
+}

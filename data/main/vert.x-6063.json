@@ -1,0 +1,39 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6063,
+ "title": "ConnectionBase::queueForWrite is not loom friendly",
+ "body": "### Version\n\n4.x\n\n### Context\n\nThis is a sister of https://github.com/netty/netty/issues/16158 and affecting Quarkus while running with VirtualThread(s) because the mentioned synchronized block is not loom friendly and inflate the lock, causing increases in native memory usage, background deflation activity and leading to native mutex contention as well.\n\nReplacing it with a reentrant lock could be a better option.\n\n### Steps to reproduce\n\n_No response_\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-04-14T15:22:10Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "To be fair, the inflation shouldn't happen just once in the lifetime of the monitor to be inflated, but still, this is not good.\nIdeally we should just avoid to make it happen, since it shuldn't.",
+   "created_at": "2026-04-14T16:47:56Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "This is what I can see in Quarkus:\n\n<img width=\"1905\" height=\"412\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/8161a3ae-4d88-45e5-aab3-5a4b6cd96ae9\" />\n\nProfiled with async-profiler `-e lock` on JDK 25, Quarkus 3.34.2 (Vert.x 4.5.26), 4 CPUs, 100 connections:\n- `interruptLock` (EPollSelectorImpl.clearInterrupt): **1,062 ms** wait on event loops in 10s\n- `Http1xServerConnection` (ConnectionBase.queueForWrite lambda): **586 ms** wait on event loops in 10s\n\nThe connection monitor is acquired by `VertxOutputStream.write()` ([source](https://github.com/quarkusio/quarkus/blob/23faec4af107387f532447419b54c40495153311/independent-projects/vertx-utils/src/main/java/io/quarkus/vertx/utils/VertxOutputStream.java#L84)) before calling `response.write()`, and held across the entire wakeup chain including syscalls:\n\n```\nVT carrier:                              Event loop:\n─────────────────────────────────────    ─────────────────────────────────────\n1. synchronized(connection)              (sleeping in epoll_wait)\n2.   awaitWriteable()\n3.   response.write(buf)\n4.     → writeToChannel()\n5.       → synchronized(this) [reentrant]\n6.         → queueForWrite()\n7.           → writeInProgress++\n8.           → execute(lambda)\n9.           → wakeup()\n10.            → synchronized(interruptLock)\n11.            → eventfd.set()  ──────→  epoll_wait returns\n12.          → monitorexit(interruptLock) processEvents()\n                                         clearInterrupt()\n                                           → synchronized(interruptLock) ← MAY CONTEND\n                                           → eventfd.reset()\n                                         runAllTasks()\n                                           → queueForWrite lambda\n13.      → monitorexit(this) [reentrant]     → synchronized(connection) ← BLOCKS HERE\n14. monitorexit(connection)  ──────────→     (unblocked, decrements writeInProgress)\n```\n\n`eventfd.set()` (step 11) wakes the event loop immediately, but the VT carrier still holds the connection monitor — it needs to complete `monitorexit(interruptLock)` (futex_wake syscall on the inflated monitor) before reaching step 14. \nThe event loop is fast enough to wake, process the interrupt, and reach the connection lock before the carrier releases it.\n\nI think it is the same pattern observed by @barreiro some time ago which led to replacing the `synchronized` block (and getting it reverted). \nA simpler fix retaining the lock could be to use a lazy submission inside the syncronized block and a separate wakeup outside of it, to narrow the window where the 2 threads (VT and EventLoop one) could compete.\ni.e. using https://github.com/netty/netty/blob/4.1/common/src/main/java/io/netty/util/concurrent/SingleThreadEventExecutor.java#L821\n\nBut @cescoffier it means that Quarkus, which is synchronizing on the connection itself for writing, need to call itself the wakeup outside it.\n",
+   "created_at": "2026-04-14T21:40:09Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "perhaps from worker thread (loom) we should do differently and just do a simple schedule without trying to order message ? that way this flow would be used from non vertx thread only",
+   "created_at": "2026-04-15T08:18:31Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 3,
+ "n_comments_total": 10,
+ "linked_prs": [
+  {
+   "number": 53646,
+   "created_at": "2026-04-15T20:22:23Z",
+   "merged_at": "2026-04-20T12:27:14Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-04-15T20:22:23+00:00"
+}

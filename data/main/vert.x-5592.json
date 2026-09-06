@@ -1,0 +1,44 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5592,
+ "title": "Vert.x hangs indefinitely on close if websocket client does not receive CLOSE frame from server",
+ "body": "### Version\n\n4.5.14\n\n### Context\n\nWhile debugging an issue with a [Quarkus WebSockets Next client](https://quarkus.io/guides/websockets-next-reference#client-api) I discovered that websocket connections cannot be forced closed. The API exposed by Quarkus is a thin layer over the Vert.x [WebSocketClient](https://vertx.io/docs/4.5.15/vertx-core/java/#_websockets_on_the_client) and I my initial thought was that Quarkus was not properly closing Vert.x resources. However, after [some more thorough testing](https://quarkusio.zulipchat.com/#narrow/channel/187030-users/topic/websockets-next.20client.20connector.20can.20leak.20vert.2Ex.20clients/with/522357745) it became clear that there was no obvious way to force a connection closed. It appears that the mechanism exposed by Vert.x requires a [websocket closing handshake](https://datatracker.ietf.org/doc/html/rfc6455#section-7) to succeed before actually closing the underlying socket. In my case, I encountered a server that takes 5 minutes to respond to a CLOSE frame from the client causing Vert.x to hang for 5 minutes on shutdown.\n\n### Steps to reproduce\n\n1. create a Vert.x WebSocketClient\n2. connect the WebSocketClient to a server that doesn't respond to CLOSE frames in a timely manner\n3. close Vert.x\n\n```java\npublic static void main(String[] args) throws InterruptedException {\n    var ssl = true;\n    var port = 443;\n    var host = \"<host>\";\n    var uri = \"<uri>\";\n    var connectLatch = new CountDownLatch(1);\n    var connectStart = new AtomicLong();\n    var closeFrameLatch = new CountDownLatch(1);\n    var closeFrameSent = new AtomicLong();\n    var clientCloseLatch = new CountDownLatch(1);\n    var clientCloseStart = new AtomicLong();\n    var vertxCloseLatch = new CountDownLatch(1);\n    var vertxCloseStart = new AtomicLong();\n    var vertx = Vertx.vertx();\n    var wsClient = vertx.createWebSocketClient(new WebSocketClientOptions().setSsl(ssl));\n    System.out.println(\"Connecting socket...\");\n    wsClient.connect(new WebSocketConnectOptions()\n                    .setHost(host)\n                    .setPort(port)\n                    .setURI(uri))\n            .onComplete(connect -> {\n                if (connect.succeeded()) {\n                    System.out.printf(\"Socket connected in %1.3f seconds.%n\", (System.nanoTime() - connectStart.get()) / 1_000_000_000.0);\n                    var ws = connect.result();\n                    ws.closeHandler(v -> System.out.printf(\"Received close frame after %1.3f seconds%n\", (System.nanoTime() - closeFrameSent.get()) / 1_000_000_000.0));\n                    ws.close().onComplete(close -> {\n                        if (close.succeeded()) {\n                            closeFrameSent.set(System.nanoTime());\n                            System.out.println(\"Sent close frame.\");\n                        } else {\n                            System.out.printf(\"Failed to send close frame. %s%n\", close.cause());\n                        }\n                        closeFrameLatch.countDown();\n                    });\n                } else {\n                    System.out.printf(\"Failed to connect socket. %s%n\", connect.cause());\n                    closeFrameLatch.countDown();\n                }\n                connectLatch.countDown();\n            });\n    connectStart.set(System.nanoTime());\n    connectLatch.await();\n    closeFrameLatch.await();\n    System.out.println(\"Closing client...\");\n    wsClient.close().onComplete(close -> {\n        if (close.succeeded()) {\n            System.out.printf(\"Client closed in %1.3f seconds.%n\", (System.nanoTime() - clientCloseStart.get()) / 1_000_000_000.0);\n        } else {\n            System.out.printf(\"Failed to close client. %s%n\", close.cause());\n        }\n        clientCloseLatch.countDown();\n    });\n    clientCloseStart.set(System.nanoTime());\n    clientCloseLatch.await();\n    System.out.println(\"Closing Vert.x...\");\n    vertx.close().onComplete(close -> {\n        if (close.succeeded()) {\n            System.out.printf(\"Vert.x closed in %1.3f seconds.%n\", (System.nanoTime() - vertxCloseStart.get()) / 1_000_000_000.0);\n        } else {\n            System.out.printf(\"Failed to close Vert.x. %s%n\", close.cause());\n        }\n        vertxCloseLatch.countDown();\n    });\n    vertxCloseStart.set(System.nanoTime());\n    vertxCloseLatch.await();\n}\n```\n\nNormal server results:\n```\nConnecting socket...\nSocket connected in 0.528 seconds.\nSent close frame.\nClosing client...\nReceived close frame after 0.097 seconds\nClient closed in 0.099 seconds.\nClosing Vert.x...\nVert.x closed in 0.007 seconds.\n```\n\nMisbehaving server results:\n```\nConnecting socket...\nSocket connected in 0.700 seconds.\nSent close frame.\nClosing client...\nReceived close frame after 300.003 seconds\nClient closed in 310.013 seconds.\nClosing Vert.x...\nVert.x closed in 0.018 seconds.\n```\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2025-06-09T15:43:02Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "Note that this issue is resolved in 5.0.0 with the new `shutdown()` behavior in the client, but it would be great to have a solution in 4.5.x since it will surely take some time for Quarkus to adopt 5.x.",
+   "created_at": "2025-06-09T15:48:51Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "we have a timeout for this, but this timeout only starts when it receives the close frame, I think I will change it to start when it emits the close frame instead",
+   "created_at": "2025-06-13T12:39:15Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "> we have a timeout for this, but this timeout only starts when it receives the close frame, I think I will change it to start when it emits the close frame instead\n\n@vietj is it the https://vertx.io/docs/apidocs/io/vertx/core/http/WebSocketClientOptions.html#setClosingTimeout(int), 10 seconds by default?",
+   "created_at": "2025-06-13T12:48:01Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@mkouba indeed but that does not work when the server does not respond with a close frame\n\n- the proposal would be to change this behaviour and start the timer when the client sends the close frame\n- otherwise there could be another timeout for this if we feel this is necessary, but I'd rather like to avoid\n- alternatively this could also be handled by the usual idle timeout which hand cases where a server does not respond but it seems here we rather have a misbehaving server\n\n@emattheis I'd suggest also to always set an idle timeout, it would help to heal such cases",
+   "created_at": "2025-06-13T12:53:50Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 4,
+ "n_comments_total": 11,
+ "linked_prs": [
+  {
+   "number": 5609,
+   "created_at": "2025-06-13T13:02:52Z",
+   "merged_at": "2025-06-13T16:32:26Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-06-13T13:02:52+00:00"
+}

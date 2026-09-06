@@ -1,0 +1,25 @@
+{
+ "repo": "google/guava",
+ "number": 7401,
+ "title": "testlib collections: `@Require(absent = ...)` considers implicit features",
+ "body": "### Guava Version\r\n\r\n33.3.0-jre\r\n\r\n### Description\r\n\r\nThe `@CollectionFeature.Require(absent = ...)` element is supposed to determine which features should _not_ be enabled. The problem is that for `absent` it also considers implicit features:\r\nhttps://github.com/google/guava/blob/a3b51888c2456350ab11694c28d7a72173f3b897/guava-testlib/src/com/google/common/collect/testing/features/FeatureUtil.java#L191-L192\r\n\r\nThis is probably wrong, because for `absent` the direction is the opposite.\r\nFor example the feature `ALLOWS_NULL_VALUES` implies `ALLOWS_NULL_QUERIES`.\r\nAnd `CollectionAddTester#testAdd_nullUnsupported()` specifies `absent = ALLOWS_NULL_VALUES`.\r\n\r\nWith the current implementation this means if `ALLOWS_NULL_QUERIES` is enabled but `ALLOWS_NULL_VALUES` is not, then `testAdd_nullUnsupported` is erroneously not executed, even though it works fine regardless of whether `ALLOWS_NULL_QUERIES` is used. The correct behavior for `absent` would be to not consider implicit features (or am I overlooking a use case?)[^1].\r\n\r\nThis means you cannot test a collection which permits `null` queries, but disallows `null` values, because\r\n- if you don't use `ALLOWS_NULL_QUERIES`, then `null` queries are not tested\r\n- if you use `ALLOWS_NULL_QUERIES`, then `null` additions (which should throw) are not tested\r\n\r\n\r\n[^1]: Maybe even for `Require(value = ...)` (= feature is present) it would not be necessary to check implicit features, because users can only opt-in into features, but not disable them again (or is that possible?). So if the main required feature is enabled, the implicit feature is enabled as well.\r\n\r\n### Example\r\n\r\n```java\r\nAtomicBoolean calledAddNull = new AtomicBoolean(false);\r\nclass NonNullList<E> extends AbstractList<E> {\r\n  private final List<E> delegate = new ArrayList<>();\r\n\r\n  @Override\r\n  public int size() {\r\n    return delegate.size();\r\n  }\r\n\r\n  @Override\r\n  public E get(int index) {\r\n    return delegate.get(index);\r\n  }\r\n\r\n  @Override\r\n  public void add(int index, E element) {\r\n    if (element == null) {\r\n      calledAddNull.set(true);\r\n    }\r\n    Objects.requireNonNull(element);\r\n    delegate.add(index, element);\r\n  }\r\n}\r\n\r\nTest test = ListTestSuiteBuilder.using(new TestStringListGenerator() {\r\n  @Override\r\n  protected List<String> create(String[] elements) {\r\n    List<String> list = new NonNullList<>();\r\n    list.addAll(Arrays.asList(elements));\r\n    return list;\r\n  }\r\n})\r\n  .withFeatures(\r\n    CollectionSize.ONE,\r\n    // CollectionFeature.ALLOWS_NULL_QUERIES,\r\n    CollectionFeature.SUPPORTS_ADD\r\n  )\r\n  .named(\"NonNullList\")\r\n  .createTestSuite();\r\n\r\nTestResult testResult = new TestResult();\r\ntest.run(testResult);\r\n\r\nSystem.out.println(\"Called `add(null)`: \" + calledAddNull.get());\r\nif (testResult.wasSuccessful()) {\r\n  System.out.println(\"SUCCESS\");\r\n} else {\r\n  System.out.println(\"ERROR\");\r\n  System.out.println(\"failures: \" + Collections.list(testResult.failures()));\r\n  System.out.println(\"errors: \" + Collections.list(testResult.errors()));\r\n}\r\n```\r\n\r\nRun once with `ALLOWS_NULL_QUERIES` enabled, and once with it disabled.\r\n\r\n\r\n### Expected Behavior\r\n\r\nIn both cases \"Called `add(null)`: true\" should have been printed\r\n\r\n### Actual Behavior\r\n\r\nWhen `ALLOWS_NULL_QUERIES` is enabled, \"Called `add(null)`: false\" is printed\r\n\r\n\r\n### Packages\r\n\r\ncom.google.common.testing\r\n\r\n### Platforms\r\n\r\nJava 17\r\n\r\n### Checklist\r\n\r\n- [X] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\r\n\r\n- [X] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\r\n",
+ "created_at": "2024-09-23T20:19:19Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "type=defect",
+  "package=testing",
+  "P3"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 7416,
+   "created_at": "2024-10-05T21:39:16Z",
+   "merged_at": "2024-10-05T22:05:11Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-10-05T21:39:16+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4209,
+ "title": "`executeBlocking` throw exception instead of return a failed future after the `workerPool` closed, thus caused `RejectedExecutionException` ",
+ "body": "### Questions\r\nWhen using `HazelcastClusterManager`, it would thrown `RejectedExecutionException` sometimes after closed the `vertx` instance:\r\n\r\n``` log\r\n2021-12-21 11:05:30,529 (:) [ERROR][io.vertx.core.impl.ContextImpl] Unhandled exception\r\njava.util.concurrent.RejectedExecutionException: Task io.vertx.core.impl.ContextImpl$$Lambda$210/0x0000000800ece910@554cbcc6 rejected from java.util.concurrent.ThreadPoolExecutor@5b8b481f[Terminated, pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 8]\r\n\tat java.util.concurrent.ThreadPoolExecutor$AbortPolicy.rejectedExecution(ThreadPoolExecutor.java:2065) ~[?:?]\r\n\tat java.util.concurrent.ThreadPoolExecutor.reject(ThreadPoolExecutor.java:833) ~[?:?]\r\n\tat java.util.concurrent.ThreadPoolExecutor.execute(ThreadPoolExecutor.java:1365) ~[?:?]\r\n\tat io.vertx.core.impl.ContextImpl.executeBlocking(ContextImpl.java:172) ~[vertx-core-4.2.2.jar:4.2.2]\r\n\tat io.vertx.core.impl.ContextImpl.executeBlocking(ContextImpl.java:137) [vertx-core-4.2.2.jar:4.2.2]\r\n\tat io.vertx.core.impl.EventLoopContext.executeBlocking(EventLoopContext.java:22) [vertx-core-4.2.2.jar:4.2.2]\r\n\tat io.vertx.core.Vertx.executeBlocking(Vertx.java:581) ~[vertx-core-4.2.2.jar:4.2.2]\r\n\tat io.vertx.spi.cluster.hazelcast.impl.Throttling.lambda$run$5(Throttling.java:100) ~[vertx-hazelcast-4.2.2.jar:4.2.2]\r\n```\r\n\r\nThe `executeBlocking` method throw the exception at [ContextImpl#L179](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/impl/ContextImpl.java#L179) when failed to execute the command (because the `workerPool` closed earlier then the netty event loop, the timer on netty eventloop still works and called `executeBlocking` after `workerPool` closed, according  [VertxImpl.java#L809-L813](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/impl/VertxImpl.java#L809-L813)), is it works as intended? Maybe we should wrapped the exception with a failed future instead, thus the caller could handle the exception or just ignore it.\r\n\r\n\r\n### Version\r\n4.2.2\r\n",
+ "created_at": "2021-12-21T04:35:08Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 149,
+   "created_at": "2022-01-20T11:30:42Z",
+   "merged_at": "2022-03-15T14:13:31Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-01-20T11:30:42+00:00"
+}

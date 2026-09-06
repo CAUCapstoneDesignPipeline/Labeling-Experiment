@@ -1,0 +1,36 @@
+{
+ "repo": "google/guava",
+ "number": 3946,
+ "title": "application/gzip media type missing in MediaType",
+ "body": "According to https://tools.ietf.org/html/rfc6713, media types like application/x-gzip should not be used any more, since they are non standard. \r\nHowever, in the MediaType class of guava, GZIP is defined as this `MediaType GZIP = createConstant(APPLICATION_TYPE, \"x-gzip\");`. In my opinion, this encourages the usage of \"deprecated\" mimetypes in a lot of applications.\r\n\r\nSimply replacing the current constant might be a problem though, so it make make sense to introduce application/gzip as an additional mimetype.\r\n",
+ "created_at": "2020-06-29T14:12:14Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=defect",
+  "package=net",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Interesting - we may want to deprecate the old constant and provide a new one (it's unlikely that we could just change it in place).",
+   "created_at": "2020-06-30T13:10:49Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@cpovirk  what should it be named? the final constant for GZIP?\r\n\r\n@Deprecated\r\n public static final MediaType GZIP = createConstant(APPLICATION_TYPE, \"x-gzip\");\r\n\r\npublic static final MediaType GZIP = createConstant(APPLICATION_TYPE, \"gzip\"); // we need a name here",
+   "created_at": "2021-11-12T02:25:01Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 8625,
+   "created_at": "2026-08-24T18:03:15Z",
+   "merged_at": "2026-08-24T18:43:41Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-08-24T18:03:15+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6181,
+ "title": "Buffer#setBytes(int, ByteBuffer) expands length using limit instead of remaining",
+ "body": "### Version\n\n4.x, 5.x\n\n### Context\n\nBuffer.setBytes(int, ByteBuffer) expands the buffer using ByteBuffer.limit():\n```java\nensureLength(pos + b.limit());\nbuffer.setBytes(pos, b);\n```\n\nByteBuf.setBytes(int, ByteBuffer) only copies b.remaining() bytes. If the source ByteBuffer has a non-zero position, the Vert.x buffer length becomes larger than the copied data.\n\nThe buffer should expand by b.remaining().\n\n\n### Steps to reproduce\n\n```java\nByteBuffer src = ByteBuffer.wrap(new byte[] { 10, 20, 30, 40, 50 });\nsrc.position(2); // remaining == 3, limit == 5\n\nBuffer dst = Buffer.buffer();\ndst.setBytes(0, src);\n\nSystem.out.println(dst.length());\nSystem.out.println(Arrays.toString(dst.getBytes()));\n```\n\nActual output:\n\n```text\n5\n[30, 40, 50, 0, 0]\n```\n\nExpected output:\n\n```text\n3\n[30, 40, 50]\n```\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-06-11T05:58:45Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 6182,
+   "created_at": "2026-06-11T06:02:02Z",
+   "merged_at": "2026-06-11T07:26:54Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-06-11T06:02:02+00:00"
+}

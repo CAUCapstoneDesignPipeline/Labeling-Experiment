@@ -1,0 +1,69 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4439,
+ "title": "Noisy logging from TCPServerBase#listen during startup",
+ "body": "### Version\r\n\r\n- 4.1.7 (via Quarkus 2.2.5)\r\n- 4.2.4 (via Quarkus 2.7.5)\r\n\r\n### Context\r\n\r\nIn a resource-constrained environment (e.g. Kubernetes with limited a CPU request/limit), the start-up of the HTTP server results in multiple blocked thread stack traces being logged. When deploying both TLS and plain text hosts this increases as well. \r\n\r\n```\r\n2022-07-15 11:41:54,804 WARN  [io.ver.cor.imp.BlockedThreadChecker] (vertx-blocked-thread-checker) Thread Thread[vert.x-eventloop-thread-0,5,main] has been blocked for 2695 ms, time limit is 2000 ms: io.vertx.core.VertxException: Thread blocked\r\n\tat io.vertx.core.net.impl.TCPServerBase.listen(TCPServerBase.java:125)\r\n\tat io.vertx.core.net.impl.TCPServerBase.bind(TCPServerBase.java:100)\r\n\tat io.vertx.core.http.impl.HttpServerImpl.listen(HttpServerImpl.java:217)\r\n\tat io.vertx.core.http.impl.HttpServerImpl.listen(HttpServerImpl.java:149)\r\n\tat io.vertx.core.http.impl.HttpServerImpl.listen(HttpServerImpl.java:154)\r\n\tat io.quarkus.vertx.http.runtime.VertxHttpRecorder$WebDeploymentVerticle.setupTcpHttpServer(VertxHttpRecorder.java:1075)\r\n\tat io.quarkus.vertx.http.runtime.VertxHttpRecorder$WebDeploymentVerticle.start(VertxHttpRecorder.java:1029)\r\n```\r\n\r\nScenario is also referenced in #1379\r\n\r\n### Extra\r\n\r\nGiven the likelihood of this situation occurring and producing log noise, it seems it may be desirable to execute `listen` using internal worker threads. I've verified this works with my application [1], but would like to discuss here if this approach is correct more broadly within Vert.x.\r\n\r\n[1] https://github.com/eclipse-vertx/vert.x/compare/master...MikeEdgar:vert.x:tcpserverbase-listen-blocking?expand=1",
+ "created_at": "2022-07-15T19:10:54Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "binding a server is a non blocking interaction with the system, can you elaborate what do you think make it blocking ?",
+   "created_at": "2022-07-17T18:42:03Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Hi @vietj , what led me to believe it was blocking were stack traces like the following. This is from version 4.1.7 in Quarkus 2.2.5, but I don't think it's fundamentally changed in more recent versions. I'll be able to get an updated stack trace tomorrow if necessary.\r\n\r\n```\r\n2022-07-16 23:32:09,249 WARN  [io.ver.cor.imp.BlockedThreadChecker] (vertx-blocked-thread-checker) Thread Thread[vert.x-eventloop-thread-0,5,main] has been blocked for 3399 ms, time limit is 2000 ms: io.vertx.core.VertxException: Thread blocked\r\n\tat java.base@11.0.15/sun.security.util.DerInputStream.getByte(DerInputStream.java:551)\r\n\tat java.base@11.0.15/sun.security.util.ObjectIdentifier.<init>(ObjectIdentifier.java:284)\r\n\tat java.base@11.0.15/sun.security.util.DerInputStream.getOID(DerInputStream.java:323)\r\n\tat java.base@11.0.15/sun.security.x509.AVA.<init>(AVA.java:602)\r\n\tat java.base@11.0.15/sun.security.x509.RDN.<init>(RDN.java:245)\r\n\tat java.base@11.0.15/sun.security.x509.X500Name.parseDER(X500Name.java:797)\r\n\tat java.base@11.0.15/sun.security.x509.X500Name.<init>(X500Name.java:307)\r\n\tat java.base@11.0.15/sun.security.x509.X509CertInfo.parse(X509CertInfo.java:666)\r\n\tat java.base@11.0.15/sun.security.x509.X509CertInfo.<init>(X509CertInfo.java:169)\r\n\tat java.base@11.0.15/sun.security.x509.X509CertImpl.parse(X509CertImpl.java:1842)\r\n\tat java.base@11.0.15/sun.security.x509.X509CertImpl.<init>(X509CertImpl.java:194)\r\n\tat java.base@11.0.15/sun.security.provider.X509Factory.engineGenerateCertificate(X509Factory.java:105)\r\n\tat java.base@11.0.15/java.security.cert.CertificateFactory.generateCertificate(CertificateFactory.java:355)\r\n\tat java.base@11.0.15/sun.security.provider.JavaKeyStore.engineLoad(JavaKeyStore.java:767)\r\n\tat java.base@11.0.15/sun.security.util.KeyStoreDelegator.engineLoad(KeyStoreDelegator.java:243)\r\n\tat java.base@11.0.15/java.security.KeyStore.load(KeyStore.java:1479)\r\n\tat java.base@11.0.15/sun.security.ssl.TrustStoreManager$TrustAnchorManager.loadKeyStore(TrustStoreManager.java:365)\r\n\tat java.base@11.0.15/sun.security.ssl.TrustStoreManager$TrustAnchorManager.getTrustedCerts(TrustStoreManager.java:313)\r\n\tat java.base@11.0.15/sun.security.ssl.TrustStoreManager.getTrustedCerts(TrustStoreManager.java:55)\r\n\tat java.base@11.0.15/sun.security.ssl.TrustManagerFactoryImpl.engineInit(TrustManagerFactoryImpl.java:49)\r\n\tat java.base@11.0.15/javax.net.ssl.TrustManagerFactory.init(TrustManagerFactory.java:278)\r\n\tat java.base@11.0.15/sun.security.ssl.SSLContextImpl.engineInit(SSLContextImpl.java:89)\r\n\tat java.base@11.0.15/javax.net.ssl.SSLContext.init(SSLContext.java:297)\r\n\tat app//io.vertx.core.net.impl.DefaultJDKCipherSuite.<clinit>(DefaultJDKCipherSuite.java:30)\r\n\tat app//io.vertx.core.net.impl.SSLHelper.createContext(SSLHelper.java:263)\r\n\tat app//io.vertx.core.net.impl.SSLHelper.getContext(SSLHelper.java:469)\r\n\tat app//io.vertx.core.net.impl.SSLHelper.getContext(SSLHelper.java:456)\r\n\tat app//io.vertx.core.net.impl.SSLHelper.validate(SSLHelper.java:494)\r\n\tat app//io.vertx.core.net.impl.TCPServerBase.listen(TCPServerBase.java:130)\r\n\tat app//io.vertx.core.http.impl.HttpServerImpl.listen(HttpServerImpl.java:220)\r\n\tat app//io.vertx.core.http.impl.HttpServerImpl.listen(HttpServerImpl.java:150)\r\n\tat app//io.vertx.core.http.impl.HttpServerImpl.listen(HttpServerImpl.java:155)\r\n\tat app//io.quarkus.vertx.http.runtime.VertxHttpRecorder$WebDeploymentVerticle.setupTcpHttpServer(VertxHttpRecorder.java:990)\r\n\tat app//io.quarkus.vertx.http.runtime.VertxHttpRecorder$WebDeploymentVerticle.start(VertxHttpRecorder.java:944)\r\n\tat app//io.vertx.core.impl.DeploymentManager.lambda$doDeploy$5(DeploymentManager.java:196)\r\n\tat app//io.vertx.core.impl.DeploymentManager$$Lambda$377/0x00000008402fd440.handle(Unknown Source)\r\n\tat app//io.vertx.core.impl.AbstractContext.dispatch(AbstractContext.java:100)\r\n\tat app//io.vertx.core.impl.AbstractContext.dispatch(AbstractContext.java:63)\r\n\tat app//io.vertx.core.impl.EventLoopContext.lambda$runOnContext$0(EventLoopContext.java:38)\r\n\tat app//io.vertx.core.impl.EventLoopContext$$Lambda$378/0x0000000840328040.run(Unknown Source)\r\n\tat app//io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:164)\r\n\tat app//io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:469)\r\n\tat app//io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:500)\r\n\tat app//io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:986)\r\n\tat app//io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)\r\n\tat app//io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)\r\n\tat java.base@11.0.15/java.lang.Thread.run(Thread.java:829)\r\n```",
+   "created_at": "2022-07-17T19:06:23Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "I see, I think we should modify SSLHelper to have the validate operation to be executed on a worker thread then.",
+   "created_at": "2022-07-18T07:05:11Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Thanks, I'll test that out to confirm it.",
+   "created_at": "2022-07-18T09:53:42Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@vietj , updating `listen` to run on a worker thread (from `bind`) was more obvious to me since it's already returning a `Future`. In order to alter `SSLHelper#validate` to run on a worker thread, can you advise how best to accomplish that? Since the remaining code in `TCPServerBase#listen` presumably depends on the outcome of `validate`, I would think a `Future` needs to be returned, which would likely change the synchronization approach in `listen`, correct?",
+   "created_at": "2022-07-18T15:16:51Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "that's correct, the SSLHelper should validation should return a future and the listen would use it to continue the internal execution of the server bind.",
+   "created_at": "2022-07-18T17:58:25Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I've had some success with the changes to `SSLHelper` as they relate to `TCPServerBase`. It's take some re-factoring of the `TCPServerBase#listen` method to account for handling of shared servers, I'll post a draft PR tomorrow for feedback.\r\n\r\nI've also found that `SSLHelper#validate` is called from the `NetClientImpl` constructor, which is proving to be a bit more challenging.",
+   "created_at": "2022-07-20T21:57:25Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "I think we can move validation to another method than the constructor\n\nOn Wed, Jul 20, 2022 at 11:57 PM Michael Edgar ***@***.***>\nwrote:\n\n> I've had some success with the changes to SSLHelper as they relate to\n> TCPServerBase. It's take some re-factoring of the TCPServerBase#listen\n> method to account for handling of shared servers, I'll post a draft PR\n> tomorrow for feedback.\n>\n> I've also found that SSLHelper#validate is called from the NetClientImpl\n> constructor, which is proving to be a bit more challenging.\n>\n> —\n> Reply to this email directly, view it on GitHub\n> <https://github.com/eclipse-vertx/vert.x/issues/4439#issuecomment-1190802643>,\n> or unsubscribe\n> <https://github.com/notifications/unsubscribe-auth/AABXDCTDXGLZ2HBYGLHMW33VVBY47ANCNFSM53WQA53Q>\n> .\n> You are receiving this because you were mentioned.Message ID:\n> ***@***.***>\n>\n",
+   "created_at": "2022-07-21T06:33:14Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I opened https://github.com/eclipse-vertx/vert.x/pull/4441 for this.",
+   "created_at": "2022-07-21T13:25:00Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 9,
+ "n_comments_total": 9,
+ "linked_prs": [
+  {
+   "number": 4468,
+   "created_at": "2022-08-30T21:47:22Z",
+   "merged_at": "2022-09-14T07:46:12Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-08-30T21:47:22+00:00"
+}

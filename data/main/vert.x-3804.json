@@ -1,0 +1,64 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3804,
+ "title": "Cannot modify metrics options via sysprop or custom Launcher ",
+ "body": "A custom Launcher is often used when you want to setup things like metrics options programmatically before Vert.x is started.\r\n\r\nSince #3771 , it is no longer possible to do this because the builder init method is invoked before the Launcher callback.\r\n\r\nThen it's too late to customize the metrics implementation.\r\n\r\nThis applies to other special options too, I think (e.g. tracing, cluster manager).\r\n\r\nEDIT: actually, it's no longer possible to activate some metrics options with sysprops. From Dropwizard docs:\r\n\r\n```\r\n-Dvertx.metrics.options.enabled=true -Dvertx.metrics.options.jmxEnabled=true\r\n```\r\n",
+ "created_at": "2021-02-11T13:33:49Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "Perhaps we should do:\r\n\r\n```java\r\n    configureFromSystemProperties.set(log);\r\n    try {\r\n      configureFromSystemProperties(options, VERTX_OPTIONS_PROP_PREFIX);\r\n      if (options.getMetricsOptions() != null) {\r\n        configureFromSystemProperties(options.getMetricsOptions(), METRICS_OPTIONS_PROP_PREFIX);\r\n      }\r\n      beforeStartingVertx(options);\r\n      builder.init();\r\n    } finally {\r\n      configureFromSystemProperties.set(null);\r\n    }\r\n```\r\n\r\ninstead of\r\n\r\n```java\r\n    configureFromSystemProperties.set(log);\r\n    try {\r\n      configureFromSystemProperties(options, VERTX_OPTIONS_PROP_PREFIX);\r\n      if (options.getMetricsOptions() != null) {\r\n        configureFromSystemProperties(options.getMetricsOptions(), METRICS_OPTIONS_PROP_PREFIX);\r\n      }\r\n      builder.init();\r\n    } finally {\r\n      configureFromSystemProperties.set(null);\r\n    }\r\n\r\n    beforeStartingVertx(options);\r\n```",
+   "created_at": "2021-02-11T13:35:11Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "The fix in https://github.com/eclipse-vertx/vert.x/commit/d9f1b16272c1d79828ca7d970352f3c3eb461a11 allows to use sysprop again but it's still not possible to modify options in a custom `Launcher`.\r\n\r\nI'll send a separate PR",
+   "created_at": "2021-02-12T09:26:39Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@tsegismont so it was not something that was tested right ?",
+   "created_at": "2021-02-12T10:18:16Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "It seems not. I'm pretty sure I added the test myself so perhaps the test is no longer valid after the builder changes.",
+   "created_at": "2021-02-12T13:01:51Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "that's the only test I removed, perhaps you can write a new one against 3.9\nand port it in 4\n\nOn Fri, Feb 12, 2021 at 2:02 PM Thomas Segismont <notifications@github.com>\nwrote:\n\n> It seems not. I'm pretty sure I added the test myself so perhaps the test\n> is no longer valid after the builder changes.\n>\n> —\n> You are receiving this because you modified the open/close state.\n> Reply to this email directly, view it on GitHub\n> <https://github.com/eclipse-vertx/vert.x/issues/3804#issuecomment-778182061>,\n> or unsubscribe\n> <https://github.com/notifications/unsubscribe-auth/AABXDCT3TCJYJRIUK5GYPS3S6URE7ANCNFSM4XO26STQ>\n> .\n>\n",
+   "created_at": "2021-02-12T14:05:02Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj doing it now. I went back to the test suite and I was wrong: there is no test.\r\n\r\nI will add one to Vert.x 3 as you said and port it to Vert.x 4",
+   "created_at": "2021-02-12T15:39:33Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj so here's a test on Vert.x 3.9 that checks you can modify `VertxOptions`:\r\n\r\nhttps://github.com/eclipse-vertx/vert.x/blob/5dee3511fdb41354a5381a55ad9abb5ab5d5514a/src/test/java/io/vertx/core/impl/launcher/LauncherExtensibilityTest.java#L109-L158\r\n\r\nUnfortunately this option has been removed in 4.0 and so has the test... But the use case of customizing options programmatically remains valid.",
+   "created_at": "2021-02-12T15:45:02Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj see #3809 (3.9.6) #3810 (4.0.3)",
+   "created_at": "2021-02-12T17:39:05Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 8,
+ "n_comments_total": 8,
+ "linked_prs": [
+  {
+   "number": 3810,
+   "created_at": "2021-02-12T17:47:27Z",
+   "merged_at": "2021-02-18T16:31:24Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-02-12T17:47:27+00:00"
+}

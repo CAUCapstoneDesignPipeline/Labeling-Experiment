@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5360,
+ "title": "Support max lifetime on HTTP Client pool",
+ "body": "The Vert.x SQL Client pool has an option to set a maximum lifetime for database connections.\r\n\r\nThe HTTP Client pool should have it as well. It would help in some cases:\r\n\r\n- make sure a connection does not live longer than authorized by some firewall\r\n- give an opportunity to the client to find new backend replicas started after the pool reached its maximum size",
+ "created_at": "2024-10-16T12:58:54Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 5527,
+   "created_at": "2025-03-20T14:26:56Z",
+   "merged_at": "2025-05-06T14:17:58Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-03-20T14:26:56+00:00"
+}

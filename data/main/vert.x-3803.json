@@ -1,0 +1,39 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3803,
+ "title": "Support for passing URL in RequestOptions",
+ "body": "#### Describe the feature\r\n\r\nThe `io.vertx.core.http.RequestOptions` in Vert.x 4.0.0 allows to set up instance with absolute Uri as a `String` via `RequestOptions().setAbsoluteUri(...)`.  Could be this extended also for providing Uri as a `java.net.URL` ? \r\n\r\n#### Use cases\r\n\r\nIn our calls we have a request uri directly in `java.net.URL` . For creating `RequestOptions` instance, we have to convert `URL` to `String`, enabling us to call `setAbsoluteUri`. But inside of this `String` is immediately parsed back to URL via `RequestOptions.parseUrl()` which is ineffective (as `parseUrl` correctly mentions it in `Note`).\r\n\r\n#### Contribution\r\n\r\nI have zero experience with contributing to any library but this could be easy done via splitting `setAbsoluteUri` into parsing and processing method:\r\n```java\r\n  public RequestOptions setAbsoluteURI(String absoluteURI) {\r\n    Objects.requireNonNull(absoluteURI, \"Cannot set a null absolute URI\");\r\n    return this.setAbsoluteURI(parseUrl(absoluteURI));\r\n  }\r\n\r\n  public RequestOptions setAbsoluteURI(URL url) {\r\n    Objects.requireNonNull(absoluteURI, \"Cannot set a null absolute URI\");\r\n    Boolean ssl = false;\r\n    int port = url.getPort();\r\n    String relativeUri = url.getPath().isEmpty() ? \"/\" + url.getFile() : url.getFile();\r\n    String protocol = url.getProtocol();\r\n    switch (protocol) {\r\n      case \"http\":\r\n        if (port == -1) {\r\n          port = 80;\r\n        }\r\n        break;\r\n      case \"https\": {\r\n        ssl = true;\r\n        if (port == -1) {\r\n          port = 443;\r\n        }\r\n        break;\r\n      }\r\n      default:\r\n        throw new IllegalArgumentException();\r\n    }\r\n    this.uri = relativeUri;\r\n    this.port = port;\r\n    this.ssl = ssl;\r\n    this.host = url.getHost();\r\n    return this;\r\n  }\r\n```",
+ "created_at": "2021-02-11T11:20:39Z",
+ "author_association": "NONE",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "do you mind contributing this ?",
+   "created_at": "2021-02-11T12:12:56Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj I can try, if i have some spare time. \r\n\r\nI presume, that reading https://github.com/eclipse-vertx/vert.x/blob/master/CONTRIBUTING.md is the starting point :), then possibly there is some kind of forum where, i can ask some questions. ",
+   "created_at": "2021-02-11T12:22:38Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "you can come on Discord, the link is on vertx.io among the top right icons\n\nOn Thu, Feb 11, 2021 at 1:22 PM anatak <notifications@github.com> wrote:\n\n> @vietj <https://github.com/vietj> I can try, if i have some spare time.\n>\n> I presume, that reading\n> https://github.com/eclipse-vertx/vert.x/blob/master/CONTRIBUTING.md is\n> the starting point :), then possibly there is some kind of forum where, i\n> can ask some questions.\n>\n> —\n> You are receiving this because you were mentioned.\n> Reply to this email directly, view it on GitHub\n> <https://github.com/eclipse-vertx/vert.x/issues/3803#issuecomment-777414917>,\n> or unsubscribe\n> <https://github.com/notifications/unsubscribe-auth/AABXDCSBLDBHDPTWRDLQGZLS6PDZ7ANCNFSM4XOUYVOA>\n> .\n>\n",
+   "created_at": "2021-02-11T22:28:02Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 3,
+ "n_comments_total": 3,
+ "linked_prs": [
+  {
+   "number": 3841,
+   "created_at": "2021-03-09T10:52:21Z",
+   "merged_at": "2021-10-21T08:58:23Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-03-09T10:52:21+00:00"
+}

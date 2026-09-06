@@ -1,0 +1,39 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3918,
+ "title": "JsonObject.hashCode() and JsonArray.hashCode() do not conform to contract",
+ "body": "### Version\r\n\r\nVert.x 4.0.3\r\n\r\n### Steps to reproduce\r\n\r\nThe implementation of hashCode() in `JsonObject` and `JsonArray` just returns the underlying list or map's `hashCode()` value. However, the corresponding `equals()` function in each class doesn't just return the underlying list or map's `equals()` value. Instead, a custom implementation is used. Specifically, numerical values have special handling in the `equals()` function in order to allow, e.g., `Float` and `Integer` objects to compare as equal if their underlying primitive values are equal. `CharSequence` objects are also have special handling.\r\n\r\nThis means that two objects could compare equal via `equals()` but return different `hashCode()` values. This violates the Java contract for `equals()` and `hashCode()`. This can be an issue when storing `JsonObject` and `JsonArray` objects in a `HashSet` or `HashMap` collection, since these collections assume that objects with different `hashCode()` values are not equal.\r\n\r\nThe recommended solution is to create a custom `hashCode()` implementation in both `JsonObject` and `JsonArray` that mimics the `equals()` implementation and so returns the same `hashCode()` value for any two objects if `equals()` returns true when called on those two objects.",
+ "created_at": "2021-05-11T21:08:50Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "FYI, #2026 was a similar issue except that it already had a custom hashCode() implementation and so was easier to fix.",
+   "created_at": "2021-05-11T21:11:08Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "that's a very valid point, specially when comparing entries with different number formats, e.g. long/double which might be equals when promoted but have different hashcode, e.g. I'm thinking off:\n\n```\nif (isWholeNumber(n1) && isDecimalNumber(n2) ||\n      isDecimalNumber(n1) && isWholeNumber(n2)) {\n      // if its either integer or long and the other is float or double or vice versa,\n      // compare as floating point double\n      return n1.doubleValue() == n2.doubleValue();\n    }\n```",
+   "created_at": "2025-03-10T12:51:58Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Small experiment:\n\n```java\nSystem.out.println(Float.hashCode(2F));\nSystem.out.println(Double.hashCode(2D));\nSystem.out.println(Long.hashCode(2L));\nSystem.out.println(Integer.hashCode(2));\n```\n\nGives\n\n```\n1073741824\n1073741824\n2\n2\n```\n\nSo it means we need to use Double/Float hashCode when dealing with Long/Integer",
+   "created_at": "2025-03-10T13:00:50Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 3,
+ "n_comments_total": 3,
+ "linked_prs": [
+  {
+   "number": 5514,
+   "created_at": "2025-03-10T13:59:37Z",
+   "merged_at": "2025-03-10T15:24:48Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-03-10T13:59:37+00:00"
+}

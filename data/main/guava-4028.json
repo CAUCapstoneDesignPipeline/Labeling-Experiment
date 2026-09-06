@@ -1,0 +1,25 @@
+{
+ "repo": "google/guava",
+ "number": 4028,
+ "title": "ForwardingMap.remove(Object object): Parameter name does not match interface: Map.remove(Object key)",
+ "body": "Is there a reason the parameter name for ForwardingMap.remove(Object object) does not match the interface: Map.remove(Object key)?  In short: 'object' != 'key'\r\nIf yes, please kindly explain the history.\r\nElse, can we rename to 'key' to match the interface?",
+ "created_at": "2020-09-17T13:41:55Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=enhancement",
+  "package=collect",
+  "P4"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4030,
+   "created_at": "2020-09-18T16:26:50Z",
+   "merged_at": "2020-09-18T16:54:11Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-09-18T16:26:50+00:00"
+}

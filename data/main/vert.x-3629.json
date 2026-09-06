@@ -1,0 +1,79 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3629,
+ "title": "[Regression] Vertx4 HttpServerRequest.uploadHandler() erases context.",
+ "body": "I have a code snippet (link to the github repo below) that works on vertx4 milestone4, but not with vertx4 >= milestone5.\r\nAt first I thought it could be related to https://github.com/eclipse-vertx/vert.x/issues/3601, but this does not seem to be the case.\r\n\r\n\r\n# Problem\r\nVertx context (`Vertx.currentContext()`) is lost inside `HttpServerRequest.uploadHandler()`\r\n\r\n# Expected behavior\r\nVertx context (`Vertx.currentContext()`)  is kept inside `HttpServerRequest.uploadHandler()`\r\n\r\n# Code example\r\n```\r\npublic class MyHandler implements Handler<RoutingContext> {\r\n    @Override\r\n    public void handle(RoutingContext routingContext) {\r\n        final HttpServerRequest event = routingContext.request().getDelegate();\r\n        event.setExpectMultipart(true);\r\n\r\n        Context context = Vertx.currentContext(); // Context is NOT null here\r\n        event.uploadHandler(event1 -> {\r\n            Single.create(new io.vertx.rx.java.SingleOnSubscribeAdapter<>(fut -> {\r\n                Context context2 = Vertx.currentContext(); // Context2 is null here\r\n            })).subscribe(o -> routingContext.end(\"check\"));\r\n        });\r\n\r\n    }\r\n}\r\n```\r\n\r\nAs I said, with vertx4 milestone 4, both `context` and `context2` are *not* null, while from milestone 5 onward, `context2` is `null`.\r\n\r\n\r\n# Github project with reproducible test\r\nhttps://github.com/oscarfh/vertx-upload-handler-context\r\nThe test `ATest#start_server` will fail, but if you downgrade to vertx milestone 4, it passes.",
+ "created_at": "2020-11-04T11:31:03Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "This is still present in 4.0.0 final. I guess because @pmlopes PR has not been merged yet, instead its milestone has been changed to 4.0.1. For the sake of consistency: this issue should be open and targeted towards 4.0.1, don't you think @vietj ?",
+   "created_at": "2020-12-10T14:12:51Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "which pr is that ?",
+   "created_at": "2020-12-10T18:04:34Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "https://github.com/eclipse-vertx/vert.x/pull/3639",
+   "created_at": "2020-12-10T18:16:33Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Can someone please reopen this, since it was not included in 4.0.0RC2 or 4.0.0.Final? @pmlopes and @vietj ",
+   "created_at": "2020-12-15T21:05:55Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "this fix has not been take as is, but https://github.com/eclipse-vertx/vert.x/pull/3639 fixes it equally",
+   "created_at": "2020-12-15T21:18:05Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "if you found a regression then it's a new bug and you should open it with a reproducer",
+   "created_at": "2020-12-15T21:18:43Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj ok, thanks a lot!",
+   "created_at": "2020-12-15T23:28:26Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I can confirm this still happens.\r\nI will prepare a project to reproduce this.\r\nI noticed that the commit db3d799bb613a4f0f5516365c5bf96cc4dadee0d is not on master, is there a reason for that?",
+   "created_at": "2020-12-16T22:22:08Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "which commit is it ? \r\n\r\nif you can provide a reproducer then it's great",
+   "created_at": "2020-12-17T07:53:22Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "This one https://github.com/eclipse-vertx/vert.x/pull/3639/commits/766a6ea3d7fc935141755b9d63c5cd5292ef450f\r\nThe commit itself and the contents are missing.\r\nNevertheless, I applied them my a local version of vertx and ran my system and it did not solve. I will start working on a reproducer right now.",
+   "created_at": "2020-12-17T12:27:37Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@vietj I can confirm this still exists and that the reproducer I created for this issue is still reproducing it.\r\nI created a new ticket #3711 as you asked, but I have not added any new information (yet) because I do not have it. I am still researching.\r\nI will add new things in the new ticket, if I find anything.",
+   "created_at": "2020-12-17T14:47:02Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 11,
+ "n_comments_total": 11,
+ "linked_prs": [
+  {
+   "number": 3712,
+   "created_at": "2020-12-17T16:29:52Z",
+   "merged_at": "2020-12-17T21:59:31Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-12-17T16:29:52+00:00"
+}

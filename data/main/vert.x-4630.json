@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4630,
+ "title": "Client using HTTP/2.2 does not generate the spans of kind CLIENT when upgrading (first request)",
+ "body": "### Version\r\n\r\n4.3.7\r\n\r\n### Context\r\n\r\nUsing the Vert.x client and the protocol to HTTP/2, the span of kind `CLIENT` that is made by Opentelemetry is ignored in the first request. \r\n\r\nThis is because the connection is upgraded to become an HTTP/2 connection via (this is done by [Http2UpgradeClientConnection](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/http/impl/Http2UpgradeClientConnection.java)). \r\n\r\nThen, the `Http2UpgradeClientConnection` implementation will call the method [current.createStream](https://github.com/eclipse-vertx/vert.x/blob/011d271bf470600989a59a605dee05ae92034170/src/main/java/io/vertx/core/http/impl/Http2UpgradeClientConnection.java#L758) where `current` is an instance of [Http1xClientConnection](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/http/impl/Http1xClientConnection.java) in the first request. So, a stream of type [Http1xClientConnection.StreamImpl](https://github.com/eclipse-vertx/vert.x/blob/011d271bf470600989a59a605dee05ae92034170/src/main/java/io/vertx/core/http/impl/Http1xClientConnection.java#L413) is created and all the CLIENT traces will be added in this stream (see [here](https://github.com/eclipse-vertx/vert.x/blob/011d271bf470600989a59a605dee05ae92034170/src/main/java/io/vertx/core/http/impl/Http1xClientConnection.java#L276)). \r\n\r\nAnd the problem is that when ending the first request (and producing the traces), the connection has been already upgraded, so it's using one of type `Http2ClientConnection` which uses a new of type [Http2ClientConnection.StreamImpl](https://github.com/eclipse-vertx/vert.x/blob/011d271bf470600989a59a605dee05ae92034170/src/main/java/io/vertx/core/http/impl/Http2ClientConnection.java#L390) which does not have the CLIENT traces that was created in Http1xClientConnection.StreamImpl.\r\n\r\nAt the second request, the connection has been already upgraded, so the `current` variable in Http2UpgradeClientConnection is a `Http2ClientConnection` instance, so everything works as expected.\r\n\r\n\r\n",
+ "created_at": "2023-02-24T05:32:54Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4632,
+   "created_at": "2023-02-24T06:53:34Z",
+   "merged_at": "2023-02-28T22:16:53Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2023-02-24T06:53:34+00:00"
+}

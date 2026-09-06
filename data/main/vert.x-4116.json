@@ -1,0 +1,54 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4116,
+ "title": "EventBus.localConsumer and EventBus.consumer interfer with each other",
+ "body": "### Version\r\n\r\nThe problems occurs with versions 3.8.5, 3.9.9 and 4.1.4\r\n\r\n### Context\r\n\r\nWhen handlers are registered at the eventBus for the **same address** with `localConsumer()` and `consumer()`, the behaviour is not as expected:\r\n\r\n1. When the `localConsumer()` is registered first, the `consumer()` will never get called for messages, which were published on other cluster nodes.\r\n2. When the `consumer()` is registered first, the `localConsumer()` will always get called even for messages, which are not local, but were published on other cluster nodes.\r\n\r\nThe expected behaviour would be, that a `localConsumer()` only gets called for local messages and the `consumer()` gets called for all messages, even if registered for the same address.\r\n\r\n### Reproducer\r\n\r\nMessage Receiver:\r\n```\r\nimport java.util.concurrent.CountDownLatch;\r\n\r\nimport io.vertx.core.Vertx;\r\nimport io.vertx.core.VertxOptions;\r\nimport io.vertx.core.eventbus.EventBus;\r\nimport io.vertx.core.eventbus.EventBusOptions;\r\nimport io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;\r\n\r\npublic class Receiver {\r\n\tpublic static Vertx vertx;\r\n\r\n\tpublic final static String FIRST_ADDRESS = \"first.address\";\r\n\r\n\tpublic final static String SECOND_ADDRESS = \"second.address\";\r\n\r\n\tpublic static void main(String[] args) throws InterruptedException {\r\n\t\tint port = 6151;\r\n\t\tCountDownLatch waitLatch = new CountDownLatch(1);\r\n\r\n\t\tVertxOptions vertxOptions = new VertxOptions();\r\n\t\tvertxOptions.setClusterManager(new HazelcastClusterManager());\r\n\r\n\t\tEventBusOptions eventbus = vertxOptions.getEventBusOptions();\r\n\t\teventbus.setHost(\"0.0.0.0\");\r\n\t\teventbus.setPort(port);\r\n\t\teventbus.setClusterPublicHost(\"0.0.0.0\");\r\n\t\teventbus.setClusterPublicPort(port);\r\n\r\n\t\tVertx.clusteredVertx(vertxOptions, result -> {\r\n\t\t\tvertx = result.result();\r\n\r\n\t\t\tEventBus eventBus = vertx.eventBus();\r\n\r\n\t\t\teventBus.localConsumer(FIRST_ADDRESS, message -> {\r\n\t\t\t\tSystem.out.println(\"Event to \" + FIRST_ADDRESS + \" handled with local consumer\");\r\n\t\t\t});\r\n\r\n\t\t\teventBus.consumer(FIRST_ADDRESS, message -> {\r\n\t\t\t\tSystem.out.println(\"Event to \" + FIRST_ADDRESS + \" handled with consumer\");\r\n\t\t\t});\r\n\r\n\t\t\teventBus.consumer(SECOND_ADDRESS, message -> {\r\n\t\t\t\tSystem.out.println(\"Event to \" + SECOND_ADDRESS + \" handled with consumer\");\r\n\t\t\t});\r\n\r\n\t\t\teventBus.localConsumer(SECOND_ADDRESS, message -> {\r\n\t\t\t\tSystem.out.println(\"Event to \" + SECOND_ADDRESS + \" handled with local consumer\");\r\n\t\t\t});\r\n\r\n\t\t\tSystem.out.println(\"Awaiting messages\");\r\n\t\t});\r\n\r\n\t\twaitLatch.await();\r\n\t}\r\n}\r\n```\r\n\r\nMessage Sender:\r\n```\r\nimport java.util.concurrent.CountDownLatch;\r\n\r\nimport io.vertx.core.Vertx;\r\nimport io.vertx.core.VertxOptions;\r\nimport io.vertx.core.eventbus.EventBus;\r\nimport io.vertx.core.eventbus.EventBusOptions;\r\nimport io.vertx.spi.cluster.hazelcast.HazelcastClusterManager;\r\n\r\npublic class Sender {\r\n\tpublic static Vertx vertx;\r\n\r\n\tpublic final static String FIRST_ADDRESS = \"first.address\";\r\n\r\n\tpublic final static String SECOND_ADDRESS = \"second.address\";\r\n\r\n\tpublic static void main(String[] args) throws InterruptedException {\r\n\t\tint port = 6152;\r\n\t\tCountDownLatch waitLatch = new CountDownLatch(1);\r\n\r\n\t\tVertxOptions vertxOptions = new VertxOptions();\r\n\t\tvertxOptions.setClusterManager(new HazelcastClusterManager());\r\n\r\n\t\tEventBusOptions eventbus = vertxOptions.getEventBusOptions();\r\n\t\teventbus.setHost(\"0.0.0.0\");\r\n\t\teventbus.setPort(port);\r\n\t\teventbus.setClusterPublicHost(\"0.0.0.0\");\r\n\t\teventbus.setClusterPublicPort(port);\r\n\r\n\t\tVertx.clusteredVertx(vertxOptions, result -> {\r\n\t\t\tvertx = result.result();\r\n\r\n\t\t\tEventBus eventBus = vertx.eventBus();\r\n\r\n\t\t\tSystem.out.println(\"Sending messages\");\r\n\r\n\t\t\teventBus.publish(FIRST_ADDRESS, null);\r\n\t\t\teventBus.publish(SECOND_ADDRESS, null);\r\n\t\t});\r\n\r\n\t\twaitLatch.await();\r\n\t}\r\n}\r\n```\r\n\r\n### Steps to reproduce:\r\n1. Start the Message Receiver\r\n2. Wait until the message receiver prints \"Awaiting messages\"\r\n3. Start the sender\r\n4. Sender will print \"Sending messages\" and then publish two messages\r\n5. Receiver will handle the second message with both the localConsumer and the consumer, but will not handle the first message at all",
+ "created_at": "2021-10-04T07:04:49Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "what happens if you use send instead of publish ?",
+   "created_at": "2021-10-04T07:35:04Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "When using send, the second message is handled by only one of the handlers (either the localConsumer or the consumer), and the first message is still not handled at all. So the behaviour is basically the same, with the only exception, that at most one handler will be called.\r\nBut send() is not what we want here, we want to publish(), because we want all handlers to be called, only not the local consumers, if the message was published on a different cluster member.",
+   "created_at": "2021-10-04T07:59:43Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hi @npomaroli , this has been reported a few times in the past. It is a known limitation of the eventbus implementation.\r\n\r\nCan you give some details about your use case? In particular, we'd like to understand why you want to have local and clustered consumers on the same node for the same address. Thanks",
+   "created_at": "2021-10-25T13:17:01Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Hi @tsegismont,\r\nwe use vert.x in our headless CMS https://github.com/gentics/mesh.\r\nIf a CMS entity (which we call \"node\") is modified, e.g. by a call to the REST API, the instance handling the request publishes an event to the address \"mesh.node.updated\", so that any kind of consumers will be notified about the data change.\r\n\r\nIn a clustered environment, we want **all** CMS instances to handle this event by clearing their (local) caches, so the event handler for \"clear cache when node is modified\" is a eventbus.consumer().\r\n\r\nOur CMS can also index the contents stored in the nodes in an (external) elasticsearch installation, and when a node is modified, we need to re-index it, but clearly, we only want **one** instance to do this, since all CMS instances are connected with the same elasticsearch cluster anyways, so the event handler for \"re-index node if changed\" is a event.localConsumer().\r\n\r\nNote, that this is only an example, we use the eventbus for lot's of messages in our CMS and it is possible for our customers to write plugins, that might register consumers or local consumers for their own purposes.",
+   "created_at": "2021-10-25T13:34:58Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Are there any updates on this?",
+   "created_at": "2022-01-14T11:10:17Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Not yet, we have planned to look into it after 4.2.4 is out",
+   "created_at": "2022-01-14T13:22:37Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 6,
+ "n_comments_total": 6,
+ "linked_prs": [
+  {
+   "number": 4350,
+   "created_at": "2022-04-29T15:28:31Z",
+   "merged_at": "2022-05-03T09:35:34Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-04-29T15:28:31+00:00"
+}

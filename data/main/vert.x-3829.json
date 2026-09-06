@@ -1,0 +1,24 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3829,
+ "title": "VertxOptions copy constructor doesn't copy TracingOptions 's tracer field",
+ "body": "### Version\r\n\r\n4.0.2\r\n\r\n### Context\r\n\r\nCloning a vertx options that sets the tracer object fails.\r\n\r\n```\r\nvar defaultOptions = new VertxOptions()\r\n\t\t\t\t.setTracingOptions(new OpenTracingOptions(GlobalTracer.registerIfAbsent(...)))\r\nvar vertxOptions = new VertxOptions(defaultOptions);\r\nassertNotNull(vertx.getTracingOptions());\r\n// throws\r\nvar vertx = Vertx.vertx(vertxOptions);\r\n```\r\n\r\n### Do you have a reproducer?\r\n\r\n (self explanatory)\r\n\r\n### Steps to reproduce\r\n\r\n1. Create a `VertxOptions` with a tracing agent set in `OpenTracingOptions`.\r\n2. Copy it using the `new VertxOptions(existingOptions)`\r\n3. Construct an `vertx` from the copied options.\r\n4. Observe it fails with the below exception because the `tracer` field in `OpenTracingOptions` is not copied.\r\n\r\n```\r\nService name must not be null or empty\r\njava.lang.IllegalArgumentException: Service name must not be null or empty\r\n\tat io.jaegertracing.internal.JaegerTracer$Builder.checkValidServiceName(JaegerTracer.java:691)\r\n\tat io.jaegertracing.Configuration.<init>(Configuration.java:196)\r\n\tat io.jaegertracing.Configuration.fromEnv(Configuration.java:208)\r\n\tat io.jaegertracing.Configuration.fromEnv(Configuration.java:204)\r\n\tat io.vertx.tracing.opentracing.OpenTracingTracer.createDefaultTracer(OpenTracingTracer.java:43)\r\n\tat io.vertx.tracing.opentracing.OpenTracingOptions.buildTracer(OpenTracingOptions.java:38)\r\n\tat io.vertx.tracing.opentracing.OpenTracingTracerFactory.tracer(OpenTracingTracerFactory.java:28)\r\n\tat io.vertx.core.impl.VertxFactory.createTracer(VertxFactory.java:154)\r\n\tat io.vertx.core.impl.VertxFactory.vertx(VertxFactory.java:78)\r\n\tat io.vertx.core.Vertx.vertx(Vertx.java:86)\r\n```\r\n\r\n",
+ "created_at": "2021-02-27T23:50:42Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug",
+  "help wanted"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 23,
+   "created_at": "2021-03-09T10:06:58Z",
+   "merged_at": "2021-03-09T10:41:53Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-03-09T10:06:58+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4815,
+ "title": "DnsClient does not close the DatagramChannel",
+ "body": "### Version\r\n\r\n[4.4.4](https://github.com/eclipse-vertx/vert.x/releases/tag/4.4.4)\r\n\r\n### Context\r\n\r\nThe ``io.vertx.core.dns.impl.DnsClientImpl`` creates a ``io.netty.channel.socket.DatagramChannel`` but does not close it itself and also offers no method to close it via the ``io.vertx.core.dns.DnsClient`` interface.\r\n\r\nWhen creating a lot of DnsClient objects instead of for example re-using one instance this can quickly lead to local address exhaustion. It is not always suitable to re-use the same client for all requests. \r\nThe DNS client currently does not specify in its docs if it is thread safe. All the ongoing DNS queries are stored in a ``LongObjectMap<Query> inProgressMap = new LongObjectHashMap<>();`` for a client.\r\n\r\nThe comparable ``io.vertx.core.datagram.impl.DatagramSocketImpl`` contains the usual close methods.\r\n\r\n### Do you have a reproducer?\r\n\r\nCalling ``vertx.createDnsClient()`` a critical amount of times, it then fails to create new clients. E.g. with ``io.netty.channel.ChannelException: Failed to open a socket.`` (depending on the platform and limits)\r\n\r\n### Extra\r\n\r\n* OS version: Ubuntu 22 or macOS 13.5\r\n* JVM version: 17.0.8\r\n",
+ "created_at": "2023-08-21T14:45:13Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4819,
+   "created_at": "2023-08-22T07:55:03Z",
+   "merged_at": "2023-08-22T08:47:25Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2023-08-22T07:55:03+00:00"
+}

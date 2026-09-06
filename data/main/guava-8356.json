@@ -1,0 +1,26 @@
+{
+ "repo": "google/guava",
+ "number": 8356,
+ "title": "Guava 33.6.0 now brings a warning when used with GWT (2.13)",
+ "body": "### Guava Version\n\n33.6.0-jre\n\n### Description\n\nGuava 33.6.0 brings (via https://github.com/google/guava/commit/638ab1846d2e6e794b831f33cc063e6478a44040) now brings a warning when used with GWT (2.13)\n\n` Warnings in com/google/common/collect/super/com/google/common/collect/ImmutableMap.java`\n`  [WARN] Line 248: [unusable-by-js] Type of parameter 'entries' in 'ImmutableMap ImmutableMap.jsOfEntries(Map.Entry[])' is not usable by but exposed to JavaScript.`\n`  [WARN] Suppress \"[unusable-by-js]\" warnings by adding a @SuppressWarnings(\"unusable-by-js\") annotation to the corresponding member.`\n\nCould you please add the @SuppressWarnings(\"unusable-by-js\") to the method to avoid this warning, even if J2CL (and not GWT) is the (main) focus for Google?\n\n### Example\n\n```java\nUse ImmutableMap in GWT code\n```\n\n### Expected Behavior\n\nNo warning (as before)\n\n### Actual Behavior\n\nWarning (quite confusing) when used with GWT\n\n### Packages\n\ncom.google.common.collect\n\n### Platforms\n\nGWT\n\n### Checklist\n\n- [x] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [x] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\n",
+ "created_at": "2026-04-17T07:49:14Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=defect",
+  "package=collect",
+  "platform=gwt",
+  "P2"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 8360,
+   "created_at": "2026-04-17T21:33:27Z",
+   "merged_at": "2026-04-17T21:56:05Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-04-17T21:33:27+00:00"
+}

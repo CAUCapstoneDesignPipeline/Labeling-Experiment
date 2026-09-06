@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6294,
+ "title": "Resetting a completed HTTP/1.1 request closes a pooled connection after reuse",
+ "body": "### Version\n\n4.4.1, 4.5.31\n\n### Context\n\nAn HTTP/1.1 HttpClientRequest can retain access to its former connection after the request has completed. If the connection returns to the pool and is assigned to a newer request, calling reset() on the completed request closes the physical connection now serving the newer request.\n\nExpected behavior\n\nCalling reset() on an already completed request should be a no-op and must not affect a subsequent request using the pooled connection.\n\nActual behavior\n\nThe subsequent request fails with io.vertx.core.http.HttpClosedException: Connection was closed.\n\nProbable cause\n\nHttp1xClientConnection.reset() uses responses.contains(stream) || stream.responseEnded to decide that a stream is in flight. responseEnded remains true after a completed stream has left the connection tracking queues. A late reset therefore marks the physical connection for closure after it has been reused.\n\nThe attached focused Http1xTest uses one keep-alive connection with pipelining disabled. Request A completes, Request B reuses the connection, and reset() is called on A while B is active. Expect: 100-continue makes the sequence deterministic; the underlying issue is not specific to 100 Continue.\n\nEnvironment: macOS 26.5.2, OpenJDK 17.0.19.\n\n### Steps to reproduce\n\n1. Check out the Vert.x 4.5.31 tag.\n2. Apply the attached test patch.\n3. Run: mvn -Dtest=io.vertx.core.http.Http1xTest#testResetCompletedRequestDoesNotCloseReusedExpectContinueRequest test\n4. Observe that the test fails with HttpClosedException: Connection was closed.\n\nThe equivalent behavior passes on the 4.2.6 code line and fails on the 4.4.1 and 4.5.31 code lines.\n\n[vertx-4531-reset-completed-request-reproducer.patch.txt](https://github.com/user-attachments/files/30863244/vertx-4531-reset-completed-request-reproducer.patch.txt)\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-08-08T20:51:13Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 6296,
+   "created_at": "2026-08-09T09:14:13Z",
+   "merged_at": "2026-08-10T19:49:18Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-08-09T09:14:13+00:00"
+}

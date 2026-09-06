@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3786,
+ "title": "Shared worker pool terminated after verticle undeployment",
+ "body": "This applies to Vert.x 4.0.0\r\n\r\nReproduction steps:\r\n\r\n- deploy a verticle with shared worker pool name set in `DeploymentOptions`\r\n- do some work\r\n- undeploy\r\n\r\nExpected:\r\n\r\nThe shared worker pool name can be reused\r\n\r\nActual:\r\n\r\nThe shared worker pool is terminated and remains in the shared worker map.",
+ "created_at": "2021-02-04T12:56:34Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 3789,
+   "created_at": "2021-02-04T13:20:43Z",
+   "merged_at": "2021-02-04T14:34:33Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-02-04T13:20:43+00:00"
+}

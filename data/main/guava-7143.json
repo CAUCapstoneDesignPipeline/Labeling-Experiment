@@ -1,0 +1,32 @@
+{
+ "repo": "google/guava",
+ "number": 7143,
+ "title": "Copying a filtered collection with ImmutableSet.copyOf() should require visiting each element only once",
+ "body": "### Description\n\nSince Google Guava 33.1.0 in https://github.com/google/guava/commit/5c4f5b205a3965b02626d0445f05accfa95e1b07, using ImmutableSet to copy a filtered collection requires iterating over and applying the predicate function, along with any side effects, to each element twice. The expected number of times is once per element.\r\n\r\nThis change message seems to indicate this behavior was understood by the author.\r\n\r\n> I could imagine bad performance for users who call `ImmutableSet.copyOf(Collections.filter(...))`. If that's an issue in practice, then maybe we should insert a special case for it inside `copyOf`. I at least made sure to call `size()` only once.\r\n\r\nI believe the code should handle this case if only to avoid unnecessary executions of the filter function which may negate any potential allocation savings. If this change cannot be made, please consider replacing `size()` with `isEmpty()`. For collections where `size()` is not constant time, `isEmpty()` is almost always cheaper, including for filtered collections.\n\n### Example\n\n```java\nimport com.google.common.collect.Collections2;\r\nimport com.google.common.collect.ImmutableSet;\r\n\r\nimport java.util.ArrayList;\r\nimport java.util.List;\r\n\r\npublic class FilteredImmutableRepro {\r\n    public static void main(String[] unused) {\r\n        List<String> example = new ArrayList<>();\r\n        example.add(\"one\");\r\n        example.add(\"two\");\r\n        example.add(\"three\");\r\n\r\n        ImmutableSet.copyOf(Collections2.filter(example, element -> {\r\n            System.out.println(element);\r\n            return true;\r\n        }));\r\n    }\r\n}\n```\n\n\n### Expected Behavior\n\n```\r\none\r\ntwo\r\nthree\r\n```\n\n### Actual Behavior\n\n```\r\none\r\ntwo\r\nthree\r\none\r\ntwo\r\nthree\r\n```\n\n### Packages\n\ncom.google.common.collect\n\n### Platforms\n\n_No response_\n\n### Checklist\n\n- [X] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n",
+ "created_at": "2024-04-09T17:36:11Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=defect",
+  "type=enhancement",
+  "package=collect",
+  "P2"
+ ],
+ "comments": [
+  {
+   "body": "Huh, why _didn't_ I use `isEmpty()` there? Oh, I see: The \"more significant optimization \\[that\\] may be coming in cl/590212390\" would use `size()`, and I didn't reconsider that when I carved off a less ambitious optimization to try first.\r\n\r\nI can change to `isEmpty()`, but it is possible that a future change will switch back to `size()`. As you observed, the filtered-collection problem is a cost that I think we'd be willing to pay in general: We regret providing filtered collections, and we believe that the JDK folks took a better approach when they designed `Stream`. `ImmutableSet` is probably one of many APIs in Guava that both calls `size()` and then iterates, so filtered collections are going to remain susceptible to this general kind of issue.\r\n\r\nStill, there's no reason to use `size()` today, even setting aside filtered-collection concerns. So I can change to `isEmpty()` to at least buy you some time to consider taking further action. (I suspect that you could switch to `ImmutableSet.copyOf(ImmutableList.copyOf(filteredCollection))`, but I do encourage moving as far away from filtered collections as you can get away with :))",
+   "created_at": "2024-04-09T17:58:55Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 7144,
+   "created_at": "2024-04-09T18:13:16Z",
+   "merged_at": "2024-04-09T18:38:10Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-04-09T18:13:16+00:00"
+}

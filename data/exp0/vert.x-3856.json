@@ -1,0 +1,44 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3856,
+ "title": "filesystem api: expose file locking operations",
+ "body": "\r\nThe `lock` and `tryLock` methods of `AsynchronousFileChannel` should be made available for `AsyncFile` wrappers, so one can perform proper file locking operations.\r\n\r\n",
+ "created_at": "2021-03-14T22:01:55Z",
+ "author_association": "NONE",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "Hi @panchmp , @vietj  is this still open for the grab ?",
+   "created_at": "2021-04-02T15:10:36Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "yes it is.\n\nOn Fri, Apr 2, 2021 at 5:10 PM Shay Dratler ***@***.***>\nwrote:\n\n> Hi @panchmp <https://github.com/panchmp> , @vietj\n> <https://github.com/vietj> is this still open for the grab ?\n>\n> —\n> You are receiving this because you were mentioned.\n> Reply to this email directly, view it on GitHub\n> <https://github.com/eclipse-vertx/vert.x/issues/3856#issuecomment-812571419>,\n> or unsubscribe\n> <https://github.com/notifications/unsubscribe-auth/AABXDCWKRQR4G7AKHPJYTBDTGXM7XANCNFSM4ZFNIWIA>\n> .\n>\n",
+   "created_at": "2021-04-06T06:23:42Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Hi @vietj  @tsegismont is this still available? ",
+   "created_at": "2022-01-30T03:43:27Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Yes",
+   "created_at": "2022-01-31T09:58:10Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 4,
+ "n_comments_total": 4,
+ "linked_prs": [
+  {
+   "number": 4311,
+   "created_at": "2022-03-15T18:23:03Z",
+   "merged_at": "2022-03-15T22:03:56Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-03-15T18:23:03+00:00"
+}

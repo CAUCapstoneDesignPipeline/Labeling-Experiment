@@ -1,0 +1,34 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3892,
+ "title": "AsyncFile: allow access to file size",
+ "body": "In https://github.com/quarkusio/quarkus/pull/16286 we realised that `AsyncFile` does not provide access to the file count, so if we're using it to pump bytes into a response we can't set the `Content-Length` header. We can't trust the `getReadLength()` method as it defaults to `Long.MAX_SIZE` if not set, and does not reflect the file size. We also can't access the file size by asking the file system, since we have no access to the file path.\r\n\r\nCould we get access to the file size, or if not, at least to the path?",
+ "created_at": "2021-04-13T15:35:16Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "It should be possible to expose the file length. `AsyncFileImpl` can get it from the underlying `AsynchronousFileChannel`.",
+   "created_at": "2021-04-14T13:18:01Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "That would be very nice.",
+   "created_at": "2021-04-14T13:21:55Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 3,
+ "linked_prs": [
+  {
+   "number": 3894,
+   "created_at": "2021-04-14T13:53:05Z",
+   "merged_at": "2021-04-26T08:27:02Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-04-14T13:53:05+00:00"
+}

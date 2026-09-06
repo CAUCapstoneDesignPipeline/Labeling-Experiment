@@ -1,0 +1,37 @@
+{
+ "repo": "google/guava",
+ "number": 5770,
+ "title": "Halve memory used by BloomFilter.java : readFrom()",
+ "body": "guava/src/com/google/common/hash/BloomFilter.java\r\n\r\nreadFrom allocates a temporary bitmap (data) of the size required, fills it and then passes that to new LockFreeBitArray(data) which allocates the same amount of memory and copies the bitmap (data) which is then discarded.\r\nIf the bitmap (data) is say 100MB in size, then double that of memory used during this process (along with extra CPU in the copy).\r\n\r\nThe readFrom could allocate the LockFreeBitArray(data) itself and read the data directly into that bitmap instead of using a temporary intermediate bitmap.",
+ "created_at": "2021-11-02T21:14:41Z",
+ "author_association": "NONE",
+ "labels": [
+  "package=hash",
+  "status=triaged",
+  "type=performance",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Hey!\r\n\r\nCan I take a look at this if it is alright?",
+   "created_at": "2021-11-15T20:13:58Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "If you are asking me, I'm good with that.",
+   "created_at": "2021-11-19T21:08:27Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 256,
+   "created_at": "2021-11-30T20:56:07Z",
+   "merged_at": "2021-12-01T15:21:55Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-11-30T20:56:07+00:00"
+}

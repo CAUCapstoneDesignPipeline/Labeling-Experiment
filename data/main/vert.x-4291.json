@@ -1,0 +1,34 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4291,
+ "title": "The method \"beforeStoppingVertx\" in Launcher has not been invoked.",
+ "body": "### Questions\r\n\r\nI write a custom Launcher in my application, when I debug the lifecycle hooks I saw the \"beforeStoppingVertx\" has not been invoked. Here is my Launcher:\r\n\r\n```java\r\npublic class MyLauncher extends Launcher {\r\n\r\n    private static final Logger log = LoggerFactory.getLogger(MyLauncher.class);\r\n\r\n    public static void main(String[] args) {\r\n        new MyLauncher().dispatch(args);\r\n    }\r\n\r\n    public static void executeCommand(String cmd, String... args) {\r\n        new MyLauncher().execute(cmd, args);\r\n    }\r\n\r\n    @Override\r\n    public void beforeStoppingVertx(Vertx vertx) {\r\n        log.info(\"beforeStoppingVertx\");\r\n    }\r\n\r\n    @Override\r\n    public void afterStoppingVertx() {\r\n        log.info(\"afterStoppingVertx\");\r\n    }\r\n}\r\n```\r\n\r\nThe info log \"beforeStoppingVertx\" never be printed.\r\n\r\nI made some debug and tests, I found this issue may be caused by the CloseFuture's hooks type, it's WeakHashMap:\r\nhttps://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/impl/CloseFuture.java#L63\r\n\r\nThe \"addCloseHook\" method be called successfully when application start\r\nhttps://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/impl/launcher/commands/RunCommand.java#L256\r\n, but then the hook be removed so it is actually not worked.\r\n\r\nDon't know whether I'm right or not, need help, please.\r\n\r\n### Version\r\n\r\n4.2.2\r\n",
+ "created_at": "2022-02-24T06:57:20Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "Can you share a small reproducer? How do you start/stop the application?\r\n\r\nIf you add:\r\n\r\n```java\r\n   @Override\r\n    public void beforeStartingVertx(VertxOptions options) {\r\n        log.info(\"beforeStartingVertx\");\r\n    }\r\n```\r\n\r\nIs anything `beforeStartingVertx` printed to the logs?",
+   "created_at": "2022-02-24T10:53:23Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "> Is anything beforeStartingVertx printed to the logs?\r\n\r\nYes, it is. Here is part of my application logs:\r\n\r\n```\r\n20:10:03.156 [main] INFO  c.t.friendship.FriendshipLauncher - beforeStartingVertx\r\n20:10:03.412 [main] INFO  c.t.friendship.FriendshipLauncher - afterStartingVertx\r\n20:10:03.938 [vert.x-eventloop-thread-2] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...\r\n20:10:04.104 [vert.x-eventloop-thread-2] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.\r\n20:10:04.692 [vert.x-eventloop-thread-0] INFO  i.v.c.i.l.c.VertxIsolatedDeployer - Succeeded in deploying verticle\r\n20:10:04.728 [vert.x-eventloop-thread-3] INFO  c.t.friendship.component.GRPCServer - start warm up application\r\n20:10:04.759 [vert.x-eventloop-thread-3] INFO  c.t.friendship.component.GRPCServer - warm up completed, cost 30ms\r\n20:10:22.709 [vert.x-worker-thread-18] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...\r\n20:10:22.717 [vert.x-worker-thread-18] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.\r\n20:10:22.830 [Thread-5] INFO  c.t.friendship.FriendshipLauncher - afterStoppingVertx\r\n```\r\n\r\nAnd in fact it is pretty easy to reproduce, just make a starter application from [start.vertx.io](https://start.vertx.io/), then add some logs. Everything works well if simply run, but add some Java heap variables like `-Xmx100m -Xms100m` to limit memory size, the issue appears.\r\n\r\nI have made a demo project, [here](https://github.com/cyhii/vertx-starter-demo)\r\n\r\nSteps: \r\n`./gradlew shadowJar`\r\n\r\n`java -Xmx100m -Xms100m -jar build/libs/starter-1.0.0-SNAPSHOT-fat.jar`\r\n(or make the heap size more smaller)\r\n\r\nLogs in my Laptop:\r\n\r\n```\r\n$ java -Xmx100m -Xms100m -jar build/libs/starter-1.0.0-SNAPSHOT-fat.jar\r\n20:33:01.562 [main] INFO  com.example.starter.MyLauncher - beforeStartingVertx\r\n20:33:01.660 [main] INFO  com.example.starter.MyLauncher - afterStartingVertx\r\n20:33:01.798 [vert.x-eventloop-thread-0] INFO  i.v.c.i.l.c.VertxIsolatedDeployer - Succeeded in deploying verticle\r\n\r\n\r\n\r\n^C20:33:02.953 [Thread-2] INFO  com.example.starter.MyLauncher - afterStoppingVertx\r\n```\r\n\r\n```\r\n$ java -Xmx300m -Xms300m -jar build/libs/starter-1.0.0-SNAPSHOT-fat.jar\r\n20:33:11.037 [main] INFO  com.example.starter.MyLauncher - beforeStartingVertx\r\n20:33:11.135 [main] INFO  com.example.starter.MyLauncher - afterStartingVertx\r\n20:33:11.240 [vert.x-eventloop-thread-0] INFO  i.v.c.i.l.c.VertxIsolatedDeployer - Succeeded in deploying verticle\r\n\r\n^C20:33:12.172 [Thread-2] INFO  com.example.starter.MyLauncher - beforeStoppingVertx\r\n20:33:12.194 [Thread-2] INFO  com.example.starter.MyLauncher - afterStoppingVertx\r\n```",
+   "created_at": "2022-02-24T12:46:22Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 3,
+ "linked_prs": [
+  {
+   "number": 4293,
+   "created_at": "2022-02-25T16:10:22Z",
+   "merged_at": "2022-03-01T11:49:06Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-02-25T16:10:22+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3662,
+ "title": "Clustered consumer keeps local registration when unregistered",
+ "body": "A method name was changed in `EventBusImpl` but not updated in `ClusteredEventBus` while re-working the clustering SPI.\r\nThis might have happened while rebasing #3132 on `master`.\r\n\r\nThe bug was not caught because we didn't have a test for unregistration.\r\n\r\n",
+ "created_at": "2020-11-23T10:57:52Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 3663,
+   "created_at": "2020-11-23T10:58:58Z",
+   "merged_at": "2020-11-23T11:28:30Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-11-23T10:58:58+00:00"
+}

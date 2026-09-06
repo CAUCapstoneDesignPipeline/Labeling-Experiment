@@ -1,0 +1,34 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4326,
+ "title": "internal NetServer of ClusterEventBus closes too early causing ConnectionHolder failures",
+ "body": "### Version\r\n\r\nVertX 4.2.6\r\n\r\n### Context\r\n\r\n[ClusterEventBus uses NetServer#listen](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/eventbus/impl/clustered/ClusteredEventBus.java#L90) internally but this adds a \r\n[closehook on context](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/net/impl/TCPServerBase.java#L185) while ClusterEventBus expects it is in control of the LifeCycle and [wants to close the server later](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/eventbus/impl/clustered/ClusteredEventBus.java#L110).\r\n\r\nThis leads to other nodes sending / publishing clustered messages to instantly loose the connection and triggers their [close()](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/eventbus/impl/clustered/ConnectionHolder.java#L141)\r\n\r\nBut because the [subscriptions have not yet been updated in NodeSelector](https://github.com/eclipse-vertx/vert.x/blob/master/src/main/java/io/vertx/core/spi/cluster/NodeSelector.java#L68) the producers connect again to the closed server.\r\n\r\ncausing loads of:\r\n`i.v.c.e.i.c.ConnectionHolder - Connecting to server 41650572-fd35-42cc-8509-369021af63bd failed`\r\n\r\n### Steps to reproduce\r\n\r\n1. Clustered VertX instance Producer constantly send / publish \"foo\" to \"address\"\r\n2. Clustered VertX instance Consumer consuming \"address\"\r\n3. Having a **shutdown delay** in the consumer - delay for 5 seconds (we use this \"trick\" to remove our microservices from discovery - finish processing - then really closing vertx)\r\n4. close Consumer instance\r\n\r\n### Extra\r\n\r\nOpenJDK 18 / Fedora CoreOS 35\r\n",
+ "created_at": "2022-04-01T20:44:37Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "With this test:\r\n\r\n```java\r\n  @Test\r\n  public void testMessagingInStopMethod() throws Exception {\r\n    startNodes(2);\r\n    CountDownLatch latch = new CountDownLatch(2);\r\n    class MyVerticle extends AbstractVerticle {\r\n\r\n      final String pingServerAddress;\r\n      final String pingClientAddress;\r\n\r\n      MyVerticle(String pingServerAddress, String pingClientAddress) {\r\n        this.pingServerAddress = pingServerAddress;\r\n        this.pingClientAddress = pingClientAddress;\r\n      }\r\n\r\n      @Override\r\n      public void start(Promise<Void> startPromise) throws Exception {\r\n        vertx.eventBus().consumer(pingServerAddress, msg -> msg.reply(\"pong\")).completionHandler(startPromise);\r\n      }\r\n\r\n      @Override\r\n      public void stop(Promise<Void> stopPromise) throws Exception {\r\n        vertx.eventBus().<String>request(pingClientAddress, \"ping\", onSuccess(msg -> {\r\n          assertEquals(\"pong\", msg.body());\r\n          stopPromise.complete();\r\n          latch.countDown();\r\n        }));\r\n      }\r\n    }\r\n    CountDownLatch deployLatch = new CountDownLatch(1);\r\n    vertices[0].deployVerticle(new MyVerticle(\"foo\", \"bar\"), onSuccess(id1 -> {\r\n      vertices[1].deployVerticle(new MyVerticle(\"bar\", \"foo\"), onSuccess(id2 -> {\r\n        deployLatch.countDown();\r\n      }));\r\n    }));\r\n    awaitLatch(deployLatch);\r\n    vertices[0].close();\r\n    vertices[1].close();\r\n    awaitLatch(latch);\r\n  }\r\n```\r\n\r\nI could verify that it was not possible to exchange messages before undeploying the verticle instance.\r\n\r\nThe problem is indeed that the event bus client and server are closed as hooks of the `VertxImpl#closeFuture`.",
+   "created_at": "2022-06-01T19:59:33Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@tsegismont \r\n\r\ni already removed the hook in my first commit.\r\nregarding my second one changing the order for eventbus and cluster-manager shutdown i'd appreciate your opinion",
+   "created_at": "2022-06-01T23:46:03Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 4544,
+   "created_at": "2022-11-17T13:41:14Z",
+   "merged_at": "2022-11-17T14:41:17Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-11-17T13:41:14+00:00"
+}

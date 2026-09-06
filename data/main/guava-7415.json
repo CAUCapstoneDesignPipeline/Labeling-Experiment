@@ -1,0 +1,31 @@
+{
+ "repo": "google/guava",
+ "number": 7415,
+ "title": "Add omitEmpty flag setter to toStringHelper",
+ "body": "### 1. What are you trying to do?\n\nThis is similar to #1404 adding support of omitting empty values from toStringHelper output.\r\n\r\nWhat I noticed is that the current code already has the feature,\r\njust that there is no public method like `omitNullValues()` to enable the `omitEmptyValues` flag.\r\n\r\nhttps://github.com/google/guava/blob/5da71a77865cbab3d0609b7faf8509685241ffce/guava/src/com/google/common/base/MoreObjects.java#L155\r\n\r\nIt supports various types detecting empty-ness\r\nhttps://github.com/google/guava/blob/5da71a77865cbab3d0609b7faf8509685241ffce/guava/src/com/google/common/base/MoreObjects.java#L334-L356\r\n\r\nCan `omitEmptyValues()` be added to `ToStringHelper` methods, so that the implemented feature can be exercised?\n\n### 2. What's the best code you can write to accomplish that without the new feature?\n\n```java\r\n        return MoreObjects.toStringHelper(this)\r\n            .omitNullValues()\r\n            .add(\"optional\", optional.orElse(null))\r\n            .add(\"array\", Array.getLength(array) == 0 ? null : array)\r\n            .add(\"collection\", collection.isEmpty() ? null : collection)\r\n            .toString();\r\n```\n\n### 3. What would that same code look like if we added your feature?\n\n```java\r\n        return MoreObjects.toStringHelper(this)\r\n            .omitEmptyValues()\r\n            .add(\"optional\", optional)\r\n            .add(\"array\", array)\r\n            .add(\"collection\", collection)\r\n            .toString();\r\n```\n\n### (Optional) What would the method signatures for your feature look like?\n\n_No response_\n\n### Concrete Use Cases\n\nExclude empty Optional, Collection, etc. from toString() output.\n\n### Packages\n\ncom.google.common.base\n\n### Checklist\n\n- [X] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [X] I have read and understood the [contribution guidelines](https://github.com/google/guava/wiki/HowToContribute#feature-requests).\n\n- [X] I have read and understood [Guava's philosophy](https://github.com/google/guava/wiki/PhilosophyExplained), and I strongly believe that this proposal aligns with it.\n\n- [X] I have visited the [idea graveyard](https://github.com/google/guava/wiki/IdeaGraveyard), and did not see anything similar to this idea.\n",
+ "created_at": "2024-10-02T20:41:25Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=addition",
+  "package=base",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Good eye --- we have this exact feature available internally (which is why some of the implementation bits have \"leaked\" into Guava). I'm not opposed to open-sourcing it, given that \"emptiness\" seems to be a fairly well-understood (but not officially documented or statically encoded) concept.\r\n\r\nI think we'll need to beef up the javadocs on our API a bit --- we may want to explicitly list the current types we check for emptiness, and also give ourselves some wiggle room for expanding (or shrinking) that list in the future.",
+   "created_at": "2024-10-08T14:16:39Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 7426,
+   "created_at": "2024-10-09T20:53:30Z",
+   "merged_at": "2024-10-09T21:19:25Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-10-09T20:53:30+00:00"
+}

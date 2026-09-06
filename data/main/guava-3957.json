@@ -1,0 +1,66 @@
+{
+ "repo": "google/guava",
+ "number": 3957,
+ "title": "Remove @Beta from Multimaps.toMultimap()",
+ "body": "In some places of our project we are using toMultimap() method which is marked as @Beta and consequently is considered as an unstable API.\r\n\r\nSee:\r\nhttps://github.com/google/guava/blob/d7a26416109381a6770681bc6c299567615e8341/guava/src/com/google/common/collect/Multimaps.java#L108\r\n\r\nSo. There is already 29.0 version of Google Guava. When does it gonna be considered as a \"stable API\"?\r\nI would provide you more examples of  similar \"unstable API\" methods from Guava...",
+ "created_at": "2020-07-09T16:57:38Z",
+ "author_association": "NONE",
+ "labels": [
+  "package=collect",
+  "P3",
+  "type=debeta"
+ ],
+ "comments": [
+  {
+   "body": "Thanks for the request. Please note, as described [here](https://github.com/google/guava/wiki/PhilosophyExplained#beta-apis), Guava's beta APIs are well-tested. If your project is an application and not a library that is meant to be included in a different application, it's safe to use them.",
+   "created_at": "2020-07-13T14:27:34Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@netdpb Yes, we use it in proprietary production grade product.\r\nHope to see it debetted in the next releases.",
+   "created_at": "2020-07-13T14:30:39Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@netdpb I can even remove this annotation by myself and create a pull request.",
+   "created_at": "2020-07-13T14:33:02Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Thanks, but because of our internal processes that actually makes it slightly more work for us. :D",
+   "created_at": "2020-07-13T14:59:28Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@netdpb OK, won't create in this case :D",
+   "created_at": "2020-07-13T15:05:17Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@netdpb Any news?",
+   "created_at": "2020-08-03T18:12:54Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "We're having an internal discussion about how to remove `@Beta` from lots more APIs, including this one. But we'll fast-forward this decision and get it out sooner.",
+   "created_at": "2020-08-04T16:12:33Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "ok, thanks",
+   "created_at": "2020-08-04T16:19:20Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 8,
+ "n_comments_total": 11,
+ "linked_prs": [
+  {
+   "number": 3987,
+   "created_at": "2020-08-12T15:05:44Z",
+   "merged_at": "2020-08-12T15:24:36Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-08-12T15:05:44+00:00"
+}

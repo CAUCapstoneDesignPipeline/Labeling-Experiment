@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6302,
+ "title": "CleanableObject.shutdown() returns a null Future when the underlying resource was garbage collected (HttpClient.close() returning null)",
+ "body": "### Version\n\n5.1.5 — still present on current master (46fa0929b).\n\n### Context\n\nAn `HttpClient` built with `vertx.httpClientBuilder().build()` is wrapped in a `CleanableHttpClient`, which references the underlying `HttpClientImpl` only through the `WeakReference` inside `CleanableObject.Action`. If the underlying resource has become unreachable and was garbage collected — for example after the Vert.x instance shut down and released its own references, while the caller still holds the wrapper — then `close()` / `shutdown(Duration)` on the wrapper returns **`null`** instead of a `Future<Void>`:\n\n```java\nprivate static class Action<T> extends WeakReference<CloseableResource<? extends T>> implements Runnable {\n\n    private Future<Void> closeFuture;\n\n    @Override\n    public void run() {\n      CloseableResource<? extends T> d = get();\n      if (d != null) {                       // referent collected -> closeFuture stays null\n        closeFuture = d.shutdown(timeout);\n      }\n    }\n}\n\npublic final Future<Void> shutdown(Duration timeout) {\n    ...\n    if (action != null) {\n      assert cleanable != null;\n      action.timeout = timeout;\n      cleanable.clean();\n      return action.closeFuture;             // <- null in that case\n    } else {\n      return Future.succeededFuture();       // the repeated-shutdown branch never returns null\n    }\n}\n```\n\nThe asymmetry with the `else` branch suggests the API is intended to never return `null`, and callers reasonably chain `close().onSuccess(...)` directly, which then throws `NullPointerException`.\n\nThis was hit in the wild by Quarkus: the OpenTelemetry OTLP exporter races its `shutdown()` against Vert.x termination, and on a GC-timing-sensitive JVM (JDK 25 Semeru in CI) `client.close()` returned `null`, producing an NPE and a flaky test. Full analysis in quarkusio/quarkus#55946.\n\nPossibly related to the lifecycle machinery discussed in #6268 (context CloseFuture retention of clients) — that issue is about the resource being retained too strongly; this one is about what happens once it is no longer retained.\n\n### Do you have a reproducer?\n\nNot yet as a standalone project. It should reproduce by building a client, letting the underlying resource become weakly reachable (e.g. closing the Vert.x instance), forcing a GC until the `WeakReference` is cleared, and then calling `client.close()` — I can put together a test case as part of a fix PR.\n\nThe fix itself looks one-line: have `shutdown(Duration)` fall back to `Future.succeededFuture()` when `action.closeFuture` is `null` after `clean()` (matching the semantics of the already-shut-down branch). I'm happy to submit that PR if the approach sounds right.\n\n### Extra\n\nObserved on OpenJDK 25 (IBM Semeru) in Quarkus CI; the mechanism is GC-timing dependent rather than JVM-specific.\n",
+ "created_at": "2026-08-10T23:32:53Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 6305,
+   "created_at": "2026-08-11T06:49:44Z",
+   "merged_at": "2026-08-11T07:27:57Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-08-11T06:49:44+00:00"
+}

@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3246,
+ "title": "HttpMethod is an interface",
+ "body": "In Vert.x 2 and 3, the `HttpMethod` is declared as an enum. This leashes the extensibility of HTTP and prevents modelling other HTTP methods with this type unless using `HttpMethod#OTHER` in addition with the `rawMethod` attribute on `HttpServerRequest` and `HttpClientRequest`.\r\n\r\nWe can turn this enum into an interface in Vert.x 4 with a few benefits:\r\n\r\n1. non predefined HTTP methods are now handled like others without special handling\r\n2. one can define its own HTTP method constant for other protocols (like \r\n\r\nAnd at the expanse of 2 breakages:\r\n\r\n1. the enum cannot be used as is dispatching a call with a `switch` construct. Instead the switch must be done on the `HttpMethod#name()` string value.\r\n2. the `rawMethod` property is removed because now the `HttpMethod` can model the raw value.\r\n\r\n",
+ "created_at": "2020-01-07T13:37:47Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 3247,
+   "created_at": "2020-01-07T13:40:44Z",
+   "merged_at": "2020-01-10T15:17:53Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-01-07T13:40:44+00:00"
+}

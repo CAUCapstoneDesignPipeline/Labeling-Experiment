@@ -1,0 +1,44 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6311,
+ "title": "Closed NetClient is never removed from its owner's CloseFuture, leaking every client created with createNetClient()",
+ "body": "### Version\n\n5.1.6, and every 5.x I tested down to 5.0.12. Not present in 4.5.21 or 4.5.27.\n\n### Context\n\n`vertx.createNetClient()` returns a client that is never released, even after `close()` has completed. Each call leaves one `NetClientImpl` reachable for as long as the Vert.x instance lives.\n\n`VertxImpl.createNetClient` registers the internal client on the close future of its owner:\n\n```java\npublic NetClient createNetClient(NetClientOptions options) {\n  NetClientImpl netClient = new NetClientBuilder(this, options).build();\n  CloseFuture fut = resolveCloseFuture();\n  fut.add(netClient);\n  return new CleanableNetClient(CleanerProvider.INSTANCE.get(), netClient);\n}\n```\n\n`CloseFuture.add` puts it in `children`, a plain `HashMap`, and `NetClientImpl` is not a `NestedCloseable`, so `add` never sets an `owner` and the `unregisterFromOwner()` path in `cascadeClose()` never applies to it.\nClosing the client reaches `channelGroup.shutdown(...)`, which takes the connections down but leaves the map entry in place. Nothing ever calls `CloseFuture.remove(netClient)`.\n\n4.5.x registered a dedicated `CloseFuture` per client instead, which took the `weakHooks` branch of `add` — a `WeakHashMap`, plus `fut.future().onComplete(ar -> remove(fut))` for auto-removal. Both safety nets went away in 5.x.\n\nThere is no workaround through the public API: the object registered is `NetClientImpl` while\n`createNetClient` returns a `CleanableNetClient` wrapper, so ContextInternal.removeCloseHook(client)` does not match — the same obstacle described in #6268.\n\nThis looks like the `NetClient` counterpart of #6268, fixed for `httpClientBuilder()` in 5.1.6. The histogram in that report already showed 10 000 leaked `NetClientImpl` alongside the HTTP clients. The direct `createNetClient` path still leaks on 5.1.6.\n\n### Steps to reproduce\n\n```java\nimport io.vertx.core.Vertx;\nimport io.vertx.core.net.NetClient;\n\npublic class Repro {\n\n    public static void main(String[] args) throws Exception {\n        Vertx vertx = Vertx.vertx();\n        for (int i = 0; i < 10_000; i++) {\n            NetClient client = vertx.createNetClient();\n            client.close().toCompletionStage().toCompletableFuture().join();\n        }\n        System.gc();\n        Thread.sleep(2_000);\n        System.gc();\n        System.out.println(\"pid \" + ProcessHandle.current().pid());\n        Thread.sleep(120_000);\n    }\n}\n```\n\n```\n$ jcmd <pid> GC.class_histogram | grep NetClientImpl\n   8:         10000         720000  io.vertx.core.net.impl.tcp.NetClientImpl\n  11:         10000         640000  io.vertx.core.net.impl.tcp.NetClientImpl$1\n```\n\nThe same loop on 4.5.21 and 4.5.27 leaves nothing behind. Connecting the client before closing it changes nothing — the leak is in create + close alone. The loop above runs on the main thread, so the owner is the Vert.x instance's own close future and nothing releases the clients before the JVM exits.\n\nMeasured on JDK 21.0.5 (Temurin), macOS 15.\n\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-08-14T07:31:33Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "can you check whether this happens with Vert. 5.2.0 SNAPSHOT ?",
+   "created_at": "2026-08-14T14:22:19Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "> can you check whether this happens with Vert. 5.2.0 SNAPSHOT ?\n\nDone, and the bug doesn't exist on 5.2.0-SNAPSHOT.",
+   "created_at": "2026-08-14T15:14:51Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "I'll backport the fix I made in maaster I think",
+   "created_at": "2026-08-14T20:42:11Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "The `createNetClient` path no longer looks like the snippet in the report — on master it goes through `registerResource(...)` — but the leak was real and I could still reproduce it.\n\nI wrote a regression test shaped like `VertxTest.testFinalizeHttpClientRegisteredWithCloseHook` (added in abab114c7 for the HTTP client) and used it to bisect:\n\n- **d9e1080b4** — fails: `expected null, but was:<io.vertx.core.net.impl.tcp.NetClientImpl@...>`\n- **6a0a037e2** (\"Introduce context resource cleanup.\", #6286) — passes\n\nSo master is fixed by 6a0a037e2: `ResourceHook.shutdown` calls `owner.remove(this)` before delegating to the resource, so closing the client — explicitly or via the cleaner — unregisters the close hook and `NetClientImpl` becomes collectable. That generalizes the HTTP-client-specific fix from abab114c7.\n\n**The 5.1 branch still leaks.** 6a0a037e2 is not an ancestor of 5.1, and the same test fails there at 6b710f6f2, consistent with the 5.1.6 report:\n\n```\njava.lang.AssertionError: expected null, but was:<io.vertx.core.net.impl.tcp.NetClientImpl@7393222f>\n```\n\nI have two tests ready to lock this in on master, both verified to fail before 6a0a037e2:\n\n- one creating the client inside a verticle, so the owner is the context close future — it also asserts nothing resurfaces after undeploy\n- one creating it on the main thread, so the owner is the Vert.x instance close future, matching the reproducer above\n\nHappy to open a PR with them against master. Should the fix be backported to 5.1, or is this issue closeable as fixed in 5.2.0?\n",
+   "created_at": "2026-08-14T22:00:05Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 4,
+ "n_comments_total": 4,
+ "linked_prs": [
+  {
+   "number": 6340,
+   "created_at": "2026-09-02T20:40:08Z",
+   "merged_at": "2026-09-03T11:41:28Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-09-02T20:40:08+00:00"
+}

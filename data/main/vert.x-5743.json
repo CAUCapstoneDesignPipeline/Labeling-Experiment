@@ -1,0 +1,44 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5743,
+ "title": "Support zero copy file transferring for IoUring transport.",
+ "body": "Hello dear Vert.x team. \n\nAs I see, in the IoUringTransport the support of file region is disabled by \n```\npublic class IoUringTransport implements Transport {\n...\n  @Override\n  public boolean supportFileRegion() {\n    return false;\n  }\n...\n```\nwhich mean that **Http1xServerResponse.sendFile** function will always fallback to read / write model instead of zero copy. \n\nAnd as Netty have direct support for file regions over io_uring (via IoUringFileRegion) I think it is good idea to enable this support for Vert.x as well, what do you think?\n\n\nP.S. I tried to \"hack\" transport just to make this getter return true (via Unsafe) and IoUringFileRegion start to work BUT it has constant **fd** leak, actually they were never closed and I thought that probably it is bug of IoUringFileRegion but I check in reactor-netty lib and it utilizing IoUringFileRegion don't have leak which mean my hack was not enough and we also need somewhere handle FileRegion closure / releasing and as you have super huge experience with Netty and DefaultFileRegion I think handling IoUringFileRegion will not cause big problems for you. \n\nThank you for bringing such perfect software as Vert.x to JVM community)\n",
+ "created_at": "2025-10-10T19:01:58Z",
+ "author_association": "NONE",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "@doxlik have you tried modifying your own build of vertx to make this work ? I can see that io uring file region are created by AbstractIoUringStreamChannel#filterOutboundMessage that automatically turns default file region into uri file region when enabled",
+   "created_at": "2025-11-03T16:33:17Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I'm wondering also whether vertx transport should not return `IoUring.isSpliceSupported()` instead",
+   "created_at": "2025-11-03T16:34:58Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj Hi, thank you for the investigation.\n\nI think I found the issue. I will try to clarify each point; if anything is unclear, feel free to ask.\n\n1) Unfortunately, due to lack of time, I initially made it work via an unsafe hack (forcing the method to return `true`) instead of doing a proper local build.\n\n2) The functionality itself actually works automatically for `DefaultFileRegion` — Netty internally turns it into `IoUringFileRegion`. However, the main problem is an **FD leak**. (P.S. I found the cause — described below.)\n\n3) Regarding `IoUring.isSpliceSupported()`: this is indeed a good idea. As far as I understand, if we report file-region support but splice is not supported, it will lead to an error. So this condition looks correct for the final implementation.  \n   P.S. In my environment it did not fail because splice support was auto-detected by Netty and was available on my system.\n\n---\n\n### Main point\n\nWhile simply changing `IoUringTransport#supportFileRegion` to return `IoUring.isSpliceSupported()` does enable the zero-copy path, there is still a constant FD leak. After long debugging, I found the issue here in `IoUringFileRegion`:\n\n```\nfinal class IoUringFileRegion implements FileRegion {\n...\n\n    final DefaultFileRegion fileRegion;\n...\n\n    IoUringFileRegion(DefaultFileRegion fileRegion) {\n        this.fileRegion = fileRegion;\n    }\n\n...\n\n\n@Override\n    public boolean release() {\n        if (fileRegion.release()) {\n            closePipeIfNeeded();\n            return true;\n        }\n        return false;\n    }\n\n    private void closePipeIfNeeded() {\n        if (pipe != null) {\n            closeSilently(pipe[0]);\n            closeSilently(pipe[1]);\n        }\n    }\n```\n\nIt closes pipes only if `fileRegion.release()` returns `true`.  \nDuring debugging I observed it returning `false`, so no pipes are closed and the FDs leak.\n\nThen I executed the request again. Before the `if`, I manually called `fileRegion.release()` in the debugger and it returned `false`. Later, when Netty called `fileRegion.release()`, it returned `true` and the FDs were successfully closed. This suggests the refCount of the original file region is **incremented by one more than necessary**, so the first release attempt does not actually free resources.\n\nI believe the root cause is in `VertxConnection#sendFileRegion`:\n\n```\n  private void sendFileRegion(FileChannel fc, long offset, long length, ChannelPromise writeFuture) {\n    if (length < MAX_REGION_SIZE) {\n      FileRegion region = new DefaultFileRegion(fc, offset, length);\n      // Retain explicitly this file region so the underlying channel is not closed by the NIO channel when it\n      // as been sent as the caller can need it again\n      region.retain();\n      writeToChannel(region, writeFuture);\n    } else {\n      ChannelPromise promise = chctx.newPromise();\n      FileRegion region = new DefaultFileRegion(fc, offset, MAX_REGION_SIZE);\n      // Retain explicitly this file region so the underlying channel is not closed by the NIO channel when it\n      // as been sent as we need it again\n      region.retain();\n      ...\n    }\n  }\n```\n\nThis `retain()` keeps the original region alive and prevents the correct release. I do see the comments, and this behavior does not reproduce for NIO and Epoll — only for io_uring. Most likely Netty handles the extra refCount internally in the DefaultFileRegion but it doesn't help to `IoUringFileRegion` because its _release_ is called only once and does nothing as original file region's _release_  returns **false** at this time.\n\n---\n\n### Proposed steps\n\n1) Make `IoUringTransport#supportFileRegion` return `IoUring.isSpliceSupported()`.\n2) Avoid `fileRegion.retain()` in `VertxConnection#sendFileRegion` for IoUringTransport, otherwise the FD leak persists.\n\n---\n\nP.S. I monitored open FDs using:\n\n```\nwatch -n 1 \"lsof -p $PID -Fn | grep '^n' | wc -l\"\n```\n",
+   "created_at": "2025-11-04T10:17:20Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "You’re right. The relevant code in VertxConnection#sendFileRegion causes the reference count of DefaultFileRegion to never reach 0. \n<img width=\"1435\" height=\"670\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/e4831557-947f-4712-a03e-8152387bc4d9\" />\n\nFor the NIO/epoll implementations, vertx will close file\n\n<img width=\"854\" height=\"284\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/e78d3671-afb5-468d-8d9e-7b07be386d5e\" />\n\nHowever, for the io_uring implementation, it doesn’t rely solely on the FileChannel; it depends on FileChannel + pipefd. The pipefd is closed based on the ref-count mechanism of DefaultFileRegion / IoUringFileRegion. Because of this, the Vert.x implementation here results in a resource leak.\n\n<img width=\"1097\" height=\"774\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/7691c088-98ac-4583-8084-55557b7ef3b8\" />\n\nI’m preparing a PR to try enabling io_uring sendfile support and to fix this resource leak issue.\n",
+   "created_at": "2026-01-19T13:29:57Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 4,
+ "n_comments_total": 4,
+ "linked_prs": [
+  {
+   "number": 5902,
+   "created_at": "2026-01-19T15:00:37Z",
+   "merged_at": "2026-05-19T08:47:49Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-01-19T15:00:37+00:00"
+}

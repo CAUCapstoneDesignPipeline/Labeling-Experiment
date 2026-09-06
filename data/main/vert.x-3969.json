@@ -1,0 +1,29 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3969,
+ "title": "Non-exitent KeyStore alias is not reported as an error",
+ "body": "### Version\r\n\r\n4.1.0\r\n\r\n### Context\r\n\r\nWhile integrating the alias feature (#3926/#3933, thanks for that!) in Quarkus (https://github.com/quarkusio/quarkus/pull/17884), I noticed that I can specify a bogus alias via `io.vertx.core.net.KeyStoreOptions.setAlias(String)` and vert.x just doesn't mind.\r\nThis makes it unecessary user-unfriendly to find configuration mistakes.\r\n\r\n### Do you have a reproducer?\r\n\r\nI don't have a small and simple reproducer but the problem can be observed in Quarkus.\r\n\r\n* https://github.com/quarkusio/quarkus.git\r\n\r\n### Steps to reproduce\r\n\r\n1. `mvn -Dquickly -T1.5C`\r\n2. In`integration-tests/vertx-http/src/main/resources/application.properties` change `quarkus.http.ssl.certificate.key-store-key-alias=server` to `=foobar`\r\n3. `mvn clean verify -f integration-tests/vertx-http/ -Dtest=Http2TestCase`\r\n4. Test fails with a `handshake_failure` when the test request is made instead of erroring out early on startup\r\n\r\n### Extra\r\n\r\n* Discussion in Quarkus PR: https://github.com/quarkusio/quarkus/pull/17884#discussion_r650659134\r\n",
+ "created_at": "2021-06-15T20:14:57Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "/cc @cescoffier @sberyozkin",
+   "created_at": "2021-06-15T20:15:36Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 3982,
+   "created_at": "2021-06-22T16:29:07Z",
+   "merged_at": "2021-06-30T09:14:21Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-06-22T16:29:07+00:00"
+}

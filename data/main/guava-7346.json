@@ -1,0 +1,90 @@
+{
+ "repo": "google/guava",
+ "number": 7346,
+ "title": "A suggestion of code improvement for BloomFilter.",
+ "body": "### API(s)\r\n\r\n```java\r\ncom.google.common.hash.BloomFilter::optimalNumOfBits(long n, double p)\r\n&\r\ncom.google.common.hash.BloomFilter::optimalNumOfHashFunctions(long n, long m)\r\n```\r\n\r\n\r\n### How do you want it to be improved?\r\n\r\n**1. **use static caculated value of log(2)  and squared log(2)** :**\r\n```java\r\n        private static final double LOG_TWO = Math.log(2);\r\n\tprivate static final double SQUARED_LOG_TWO = Math.pow(LOG_TWO,2);\r\n```\r\n**2. calculate optimalNumOfBits by static values:**\r\n```java\r\n\tstatic long optimalNumOfBits(long n, double p) {\r\n\t    if (p == 0) {\r\n\t\t\tp = Double.MIN_VALUE;\r\n\t    }\r\n\t    return (long) (-n * Math.log(p) / SQUARED_LOG_TWO);\r\n\t}\r\n```\r\n**3. caculate optimalNumOfHashFunction by false positive rate(p) directly and using LOG_TWO :**\r\n```java\r\n     \tstatic int optimalNumOfHashFunctions(double p){\r\n\t\treturn  Math.max(1, (int) Math.round( - Math.log(p) / LOG_TWO));\r\n\t}\r\n ```\r\n\r\n\r\n### Why do we need it to be improved?\r\n\r\n1.  Slightly reduce the method's execution time.\r\n2.  Refine the calculation of the optimalNumOfHashFunctions method to be more concise and efficient. The current code may lead people to mistakenly believe that the result is related to the number of samples(n) and the number of bits（m）, when in fact it is only related to the false positive rate(p).\r\n\r\n### Example\r\n\r\n```java\r\nas the given codes in  “How do you want it to be improved”\r\n```\r\n\r\n\r\n### Current Behavior\r\n\r\nas the source codes in  “How do you want it to be improved”\r\n\r\n### Desired Behavior\r\n\r\nas the given codes in \r\ncom.google.common.hash.BloomFilter::optimalNumOfBits(long n, double p)\r\n&\r\ncom.google.common.hash.BloomFilter::optimalNumOfHashFunctions(long n, long m)\r\n\r\n### Concrete Use Cases\r\n\r\nas \"How do you want it to be improved\"\r\n\r\n### Checklist\r\n\r\n- [X] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\r\n\r\n- [X] I have read and understood the [contribution guidelines](https://github.com/google/guava/wiki/HowToContribute#feature-requests).\r\n\r\n- [X] I have read and understood [Guava's philosophy](https://github.com/google/guava/wiki/PhilosophyExplained), and I strongly believe that this proposal aligns with it.\r\n",
+ "created_at": "2024-08-05T08:40:34Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=enhancement",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "This appears to have been a [deliberate change](https://github.com/google/guava/commit/5fe4eb68ef980694d8cbbeb34a6914c05696cee7) back in 2012. Maybe @kluever remembers the rationale.",
+   "created_at": "2024-08-06T13:24:53Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Thanks for  reply. My fault didn't express the main point clearly enough.\r\nThe main  recommendation is using \r\n```java\r\noptimalNumOfHashFunctions(double p)\r\n```\r\ninstead of\r\n```java\r\noptimalNumOfHashFunctions(long n, long m)\r\n```",
+   "created_at": "2024-08-07T05:16:26Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hey, @longlong354 \r\n\r\nSo, you just want the usage of (double p) and not (long m, long n) as argument for bloomfilter.\r\n",
+   "created_at": "2024-08-26T20:21:54Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "The situation now is roughly that we start from $n$, the expected number of entries, and $p$, the desired false positive probability, and we [derive](https://github.com/google/guava/blob/137798d217d717a153870019ccc1b87cf6ee2cd1/guava/src/com/google/common/hash/BloomFilter.java#L536) $m$, the optimal number of bits, as\r\n\r\n$$ m = \\lfloor {-n\\ \\ln\\ p } / { (\\ln\\ 2)^2} \\rfloor $$\r\n\r\nThen we further [derive](https://github.com/google/guava/blob/137798d217d717a153870019ccc1b87cf6ee2cd1/guava/src/com/google/common/hash/BloomFilter.java#L518) $k$, the optimal number of hash functions, as\r\n\r\n$$ k = (m / n)\\ \\ln\\ 2 \\approx {-n\\ \\ln\\ p } / { \\ln\\ 2} $$\r\n\r\nrounded to an integer. You are proposing instead\r\n\r\n$$ k = { -\\ln\\ p } / { \\ln\\ 2 } $$\r\n\r\nremoving the factor of $n$. That's a different number. Are you saying that it's more accurate? Could you explain why?",
+   "created_at": "2024-08-27T13:34:20Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": " The derivation of the formula \r\n\r\n> \r\n> k = (m / n) ln 2 ≈ -n ln p / ln 2\r\n> \r\nis inaccurate; it should be \r\n> \r\n> k = (m / **_n_**) ln 2 ≈ - ln p / ln 2\r\n> \r\n Please kindly note that the bolded 'n' in the numerator cancels out with the 'n' in m( m = ⌊ − **_n_**   ln ⁡   p / ( ln ⁡   2 ) 2 ⌋ )\"\r\n\r\nps:\r\nrefering to  https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions\r\nalso can be verified in https://krisives.github.io/bloom-calculator/ that n does not affect k\r\n",
+   "created_at": "2024-08-29T00:58:30Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "> Hey, @longlong354\r\n> \r\n> So, you just want the usage of (double p) and not (long m, long n) as argument for bloomfilter.\r\n\r\nyep~",
+   "created_at": "2024-08-29T00:59:16Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hi, I would like to take on this issue. I propose optimizing the `optimalNumOfBits` and `optimalNumOfHashFunctions` methods as follows:\n\n- Pre-calculate constant values for `log(2)` and `log(2)^2` to avoid recalculating these in each method call, which will slightly improve performance.\n- Refine the calculation of `optimalNumOfBits` to ensure a false positive rate of 0 is handled by setting it to `Double.MIN_VALUE`, and use the pre-calculated values for efficiency.\n- Simplify `optimalNumOfHashFunctions` to calculate the number of hash functions directly from the false positive rate `p`, as this is the only factor affecting the result, rather than the number of elements `n` and bits `m`.\nThese changes will clarify the logic and improve performance.\n\nPlease let me know if I can proceed with these modifications!",
+   "created_at": "2024-10-11T18:56:41Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Sorry, I lost track of this issue.\n\n@longlong354 is right that the algebra in my [earlier comment](https://github.com/google/guava/issues/7346#issuecomment-2312581621) was incorrect, and it does seem as if rewriting the code as suggested would make sense.\n\nI still don't know why the code was rewritten in 2012 to _remove_ the pre-calculation of $\\ln\\ 2$ and $\\ln^2\\ 2$. I expect that the JIT compiler is able to inline these constants, but we could reasonably do it explicitly and save it the work.\n\nI think we would accept a PR on the lines of the [original comment](https://github.com/google/guava/issues/7346#issue-2447960079). If @longlong354 wants to send that PR I think that would make the most sense, and otherwise @Romain-E. The only non-obvious thing I see is how to adjust the corresponding [tests](https://github.com/google/guava/blob/b84a41d077ac91bff682c354f9dde0f25b0cd6c4/guava-tests/test/com/google/common/hash/BloomFilterTest.java#L256-L267) in `BloomFilterTest`. I think the second test method is no longer relevant but I'm not sure about the first.",
+   "created_at": "2024-10-12T16:48:59Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I concur that the second test (`testOptimalNumOfHashFunctionsRounding`) no longer applies with the new approach and should probably be removed. The first test (`testOptimalHashes`) could be adjusted to work with the updated method by testing for different values of p rather than n and m. Alternatively, we could add a method that derives p from n and m and maintain the test in a slightly modified form.\n\nLet me know if this direction works for you, and I’d be happy to proceed with the PR.",
+   "created_at": "2024-10-12T17:05:52Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Thank u all for the discussion.\nPls proceed @Romain-E, thanks in advance. \n",
+   "created_at": "2024-10-14T03:15:37Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hi !\nI hope this message finds you well! I wanted to check in regarding PR #7346. I would be grateful if you could take a look whenever time allows, as I am eager to understand any feedback you might have to improve this optimization further.\n\nThanks again for your time and consideration, and please let me know if there's anything specific I should adjust.\n\nBest regards",
+   "created_at": "2024-11-10T19:58:42Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "> Hi ! I hope this message finds you well! I wanted to check in regarding PR [#7346](https://github.com/google/guava/issues/7346). I would be grateful if you could take a look whenever time allows, as I am eager to understand any feedback you might have to improve this optimization further.\n> \n> Thanks again for your time and consideration, and please let me know if there's anything specific I should adjust.\n> \n> Best regards\n\nLooks perfect. Benefited a great deal from the changes on max(). Almost fogot static import feature in Java, thanks a lot~",
+   "created_at": "2024-11-12T07:57:45Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hello ! Do I need to change anything after this commit ? Or is it good ? I've never worked on this project before.",
+   "created_at": "2024-11-18T17:50:37Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 13,
+ "n_comments_total": 13,
+ "linked_prs": [
+  {
+   "number": 7538,
+   "created_at": "2024-12-08T17:04:55Z",
+   "merged_at": "2024-12-08T17:34:03Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-12-08T17:04:55+00:00"
+}

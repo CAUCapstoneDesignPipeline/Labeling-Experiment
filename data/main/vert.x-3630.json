@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3630,
+ "title": "Filesystem.readDir fail on file with space in filename",
+ "body": "### Version\r\n\r\n3.9.4\r\n\r\n### Context\r\n\r\nFilesystem methods for read directory failing when directory contains file with space character in filename.\r\n\r\n### Root cause\r\n\r\nThe code is failing in FileResolver.getValidClassLoaderResource because isValidCachePath returns false\r\n```\r\n    private static URL getValidClassLoaderResource(ClassLoader cl, String fileName) {\r\n        URL resource = cl.getResource(fileName);\r\n        return resource != null && !isValidCachePath(fileName) ? null : resource;\r\n    }\r\n```\r\nIn isValidCachePath \r\n```\r\nif (!CACHE_PATH_CHECKER.test(c)) { //where c = 32\r\n     return false;\r\n}\r\n```\r\n\r\n### Steps to reproduce\r\n\r\n1. Put \"some file.txt\" into resources.\r\n2. Use Filesystem.readDir(path, handler).\r\n\r\n### Extra\r\n\r\nWindows 7, Azul Java 11\r\n",
+ "created_at": "2020-11-05T01:24:28Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 3644,
+   "created_at": "2020-11-17T10:16:28Z",
+   "merged_at": "2020-11-17T16:04:46Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2020-11-17T10:16:28+00:00"
+}

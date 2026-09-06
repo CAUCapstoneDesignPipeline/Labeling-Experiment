@@ -1,0 +1,18 @@
+{
+ "seed": 20260905,
+ "n": 10,
+ "keys": [
+  "eclipse-vertx/vert.x#3786",
+  "eclipse-vertx/vert.x#3856",
+  "eclipse-vertx/vert.x#4487",
+  "eclipse-vertx/vert.x#4660",
+  "eclipse-vertx/vert.x#5748",
+  "eclipse-vertx/vert.x#6006",
+  "eclipse-vertx/vert.x#6276",
+  "eclipse-vertx/vert.x#6294",
+  "google/guava#5773",
+  "google/guava#8158"
+ ],
+ "pool_size": 187,
+ "generated_at": "2026-09-05T14:23:48.770176+00:00"
+}

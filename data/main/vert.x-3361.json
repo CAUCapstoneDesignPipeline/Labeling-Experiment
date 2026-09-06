@@ -1,0 +1,29 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3361,
+ "title": "Shared HttpClient support",
+ "body": "A few Vert.x clients (e.g. JDBC, Cassandra, Mongo) have `createShared` methods. The purpose of these creation methods is that, when you deploy multiple verticle instances, a single resource (JDBC datasource, Mongo client, Cassandra session) is created and reused.\r\n\r\nWhile this requirement was obvious for Vert.x clients wrapping existing libraries, most built-in clients don't have them. So if a user has to open at most `C` connections to an HTTP backend, and deploys `V` verticle instances, it is advised to create an `HttpClient` with `C/V` as max pool size.\r\n\r\nOn the upside, the user will get maximum performance because the HttpClient will be operated on the verticle context. On the downside, the configuration process is not straightforward.\r\n\r\nFor Vert.x 4, HttpClient (and some other built-in clients too) have been made safe to use on different contexts. So it is possible to add `createShared` methods now.\r\n\r\nThe benefit is simplified configuration. The drawback is that this will require an extra hop between the context that actually created the `HttpClient` and the context using it. This should be acceptable by most apps though (the user pays at least this price when sending messages over the eventbus).",
+ "created_at": "2020-04-09T09:09:57Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "keep in mind this is not in the 4.0 priority list and I want us to focus on 4.0 priority tasks.",
+   "created_at": "2020-04-09T09:35:34Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 4172,
+   "created_at": "2021-11-18T10:51:32Z",
+   "merged_at": "2021-11-22T10:00:06Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-11-18T10:51:32+00:00"
+}

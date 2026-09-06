@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4246,
+ "title": "Support vfs protocol in the default FileResolver implementation",
+ "body": "#### Read me\r\n\r\nWhen an embedded Vertx is used for a war deployment which reads resources in the bundle, and it is deployed to a WildFly server, it fails to read with error message: `Invalid url protocol: vfs`.\r\n\r\nIt is more like a feature than a bug from Vert.x point of view.\r\n\r\nFor more information, please refer to https://github.com/gaol/tests/tree/master/vertx/vfs-resolver for the reproducer.\r\n\r\n#### Describe the feature\r\n\r\nThe default FileResolver implementation [supports several URL protocols](https://github.com/eclipse-vertx/vert.x/blob/4.2.3/src/main/java/io/vertx/core/file/impl/FileResolverImpl.java#L235-L239) to resolve the file path, I would like to add the support of `vfs`.\r\n\r\n`vfs` comes from [jboss-vfs](https://github.com/jbossas/jboss-vfs) project, which is used inside of WildFly server for managing the files of the deployed applications, any resource loaded by the class loader(ModuleClassLoader) is a vfs URL in the server.\r\n\r\nUsing a customized FileResolver implementation looks too much than just one line modification in the default implementation, so it is great to have it supported in Vert.x.\r\n\r\n#### Use cases\r\n\r\nWhen embedded Vertx is used in web application, and it is deployed to WildFly server, it faces this problem.\r\nLike when [PropertyFileAuthentication](https://vertx.io/docs/vertx-auth-properties/java/) is used to read authentication properties from the bundle.\r\n\r\n#### Contribution\r\n\r\nI can send PR for this.\r\n",
+ "created_at": "2022-01-18T02:47:51Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4247,
+   "created_at": "2022-01-18T02:49:39Z",
+   "merged_at": "2022-01-18T11:49:57Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2022-01-18T02:49:39+00:00"
+}

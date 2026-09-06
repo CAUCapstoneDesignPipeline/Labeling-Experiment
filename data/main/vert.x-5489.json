@@ -1,0 +1,34 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5489,
+ "title": "Jackson behavior change in 2.15 can disrupt eventbus",
+ "body": "### Version\n\nWhich version(s) did you encounter this bug ?\n\n* 4.5.x\n* 5.x\n\n### Context\n\nI encountered an exception which looks suspicious while transporting a large JSON payload over the eventbus. When the jackson library was updated to >= 2.15\n\nThe issue is related to: https://github.com/FasterXML/jackson/wiki/Jackson-Release-2.15#processing-limits\n\nJackson now imposes default limits on encode/decode for security reasons. However there is no obvious way to address those exceptions being bubbled from:\n\nhttps://github.com/eclipse-vertx/vert.x/blob/master/vertx-core/src/main/java/io/vertx/core/eventbus/impl/codecs/JsonObjectMessageCodec.java#L34\n\n### Do you have a reproducer?\n\n```\nnew JsonObject(... very large string say >20Mb)\n```\n\nShould throw a `DecodeException` which steam from the new settings:\n\nhttps://github.com/FasterXML/jackson-core/blob/2.19/src/main/java/com/fasterxml/jackson/core/StreamReadConstraints.java\n\n### Extra\n\nA fix would be to have a way to control the JsonFactory here:\n\nhttps://github.com/eclipse-vertx/vert.x/blob/master/vertx-core/src/main/java/io/vertx/core/json/jackson/JacksonCodec.java#L51",
+ "created_at": "2025-02-26T11:05:08Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "thanks for reporting, the only way I think we can address configurability is using system properties to control that since this is a static declaration ",
+   "created_at": "2025-02-26T15:46:08Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "See https://github.com/eclipse-vertx/vert.x/pull/5490 for master",
+   "created_at": "2025-02-26T17:28:40Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 5492,
+   "created_at": "2025-02-27T21:36:33Z",
+   "merged_at": "2025-02-28T07:48:06Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-02-27T21:36:33+00:00"
+}

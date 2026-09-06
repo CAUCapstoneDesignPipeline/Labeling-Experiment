@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4175,
+ "title": "HTTP client fixed event loop pool",
+ "body": "HTTP client uses event loops provided by actual requests to assign connection event-loops. In some case it is desirable to have the client use its own event loop as a pool, like when it is shared between verticles or statically.",
+ "created_at": "2021-11-22T09:59:32Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 4172,
+   "created_at": "2021-11-18T10:51:32Z",
+   "merged_at": "2021-11-22T10:00:06Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-11-18T10:51:32+00:00"
+}

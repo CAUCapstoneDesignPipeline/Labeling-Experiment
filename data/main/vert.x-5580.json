@@ -1,0 +1,39 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5580,
+ "title": "Some Http2ClientConnections remain open despite the Http2KeepAliveTimeout",
+ "body": "\n### Version\n\nvertx-core:4.5.15\n\n### Context\n\nWe are using a Vert.x client under heavy load, and we noticed that some connections are never released after the traffic finishes even with a `Http2KeepAliveTimeout` configured.\n\nWe found that these connections had their lastStreamId set to 0. So, I believe the problem is that these connections never had a valid stream. As a result, the `Http2ClientConnection.recycle()` method is never called, and the `expirationTimestamp` field is not updated, so the connection is never released due to the keepAliveTimeout.\n\nI have fixed it by adding in the constructor:\n```\nHttp2ClientConnection(\n      HttpClientBase client,\n      ContextInternal context,\n      VertxHttp2ConnectionHandler connHandler,\n      ClientMetrics metrics) {\n    super(context, connHandler);\n    this.metrics = metrics;\n    this.client = client;\n    \n    // We set the keep-alive timeout from the beginning\n    int timeout = client.options().getHttp2KeepAliveTimeout();\n    this.expirationTimestamp = timeout > 0 ? System.currentTimeMillis() + timeout * 1000L : 0L;\n  }\n```\n\nWhat do you think about this? Could this change have a side effect, or is it fine as it is?\nThx!",
+ "created_at": "2025-05-30T06:29:43Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "that needs proper examination",
+   "created_at": "2025-05-30T13:13:41Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "that's actually how it is in Vert.x 5",
+   "created_at": "2025-06-02T07:29:45Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I'll try reproducing it",
+   "created_at": "2025-06-02T07:30:30Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 3,
+ "n_comments_total": 5,
+ "linked_prs": [
+  {
+   "number": 5585,
+   "created_at": "2025-06-02T08:11:22Z",
+   "merged_at": "2025-06-02T08:40:09Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-06-02T08:11:22+00:00"
+}

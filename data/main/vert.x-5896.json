@@ -1,0 +1,64 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5896,
+ "title": "Http2 server - compressed and uncompressed responses over same connection",
+ "body": "### Version\n\n5.0.6\n\n### Context\n\nHi, I've encountered the problem with server compression and http2 connection reuse. The problem is in VertxCompressorHttp2ConnectionEncoder\n\nAs soon as you send one response that is uncompressed(for instance content-encoding:identity for some small healthcheck endpoint) the next method will switch the encoder from compressed to plain. It will do so only once, so then when you send compressed body, you'll get content-encoding: gzip/zstd but body will be uncompressed cause the codec was already switched to plain by this line `delegate = plainEncoder;`\n\n ```private void beforeWritingHeaders(ChannelHandlerContext ctx, int streamId, Http2Headers responseHeaders) {\n    String contentEncodingToApply = determineContentEncodingToApply(ctx, streamId, responseHeaders);\n    if (contentEncodingToApply == null || contentEncodingToApply.equalsIgnoreCase(IDENTITY.toString())) {\n      if (responseHeaders.contains(CONTENT_ENCODING, IDENTITY)) {\n        responseHeaders.remove(CONTENT_ENCODING);\n      }\n      delegate = plainEncoder;\n    } else {\n      responseHeaders.set(CONTENT_ENCODING, contentEncodingToApply);\n    }\n  }\n```\n\nThis leads to a client exception like\n\n```\nio.netty.handler.codec.compression.DecompressionException: Input is not in the GZIP format\n\tat io.netty.handler.codec.compression.JdkZlibDecoder.readGZIPHeader(JdkZlibDecoder.java:341)\n```\n\nSo the response body does not match content-encoding header. Also user should not be forced to use all compressed or all uncompressed requests/response per connection. Described scenario worked properly with vertx 4.*\n\n\n### Steps to reproduce\n\n1. Create http server with http2 and server compression.  \n2. Implement first endpoint - it should return anything and put response header `content-encoding : identity`. \n3. Implement second endpoint-  return anything without additional header to allow compression\n4. Create http client with http2 support. Make to sequential requests to endpoint without compression and endpoint with compression. \n5. On the second response you'll receive `content-encoding: *` but response body is not actually compressed which leads to decompression exception on the client\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-01-14T09:59:17Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "I faced the same issue but could not find why it's happening. thank you for the details, this helps a lot to understand the problem.\n\nIn my case this bug can lead to complete outages of UIs connecting via reverse proxy or cdn to vertx backends. Having multiplexed client connections to a small amount of proxy to service connections (all using H2) could break the whole UI over time.\n\n@vietj can you take a look?",
+   "created_at": "2026-03-09T11:10:01Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "not very pretty but something like that would fix it  https://github.com/zyclonite/vert.x/commit/cafcaa9f7dcf6e2d67df04b1b5d1c6be0154d803",
+   "created_at": "2026-03-09T18:10:38Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@zyclonite not much bandwidth this week, I'll try to have a look at the issue",
+   "created_at": "2026-03-10T09:55:12Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj thank you, if you know someone that knows that topic equally good, maybe he can jump in as well",
+   "created_at": "2026-03-10T12:47:46Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@vietj just checking in on this bug, did you find a minute to have a look?",
+   "created_at": "2026-04-09T13:59:57Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "not yet @zyclonite sorry :-(",
+   "created_at": "2026-04-09T14:14:42Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@zyclonite how about sending a PR that includes a test? Then we can start reviewing. Thanks!",
+   "created_at": "2026-04-09T15:42:01Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "i can have try, will take me a while to get into this. \n\ni was hoping that somebody that knows the code would see it immediately or at least have an idea or a direction",
+   "created_at": "2026-04-09T15:55:09Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 8,
+ "n_comments_total": 10,
+ "linked_prs": [
+  {
+   "number": 6069,
+   "created_at": "2026-04-16T15:33:54Z",
+   "merged_at": "2026-04-21T07:43:44Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-04-16T15:33:54+00:00"
+}

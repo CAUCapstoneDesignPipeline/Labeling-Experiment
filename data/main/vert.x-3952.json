@@ -1,0 +1,34 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3952,
+ "title": "Allow other types beyond String being used as key to store state in Context",
+ "body": "#### Describe the feature\r\n\r\nIn class `io.vertx.core.Context` : methods `getLocal`, `putLocal`, `removeLocal` all require a key of type String.\r\n\r\nWould be great to relax this requirement and accept any object types (Object?).\r\n\r\n#### Use cases\r\n\r\nWe have to store a custom object with sub-scope identifiers as well; the current API is forcing us to encode additional scope as post-fixes on a shared root String, but this implies we have to allocate new String instances on each access.\r\n\r\nBeing able to use a composite object would still require allocation, but encoding of parts of scoping would be really cheap. Not leat, String comparison isn't very efficient when we have to use a shared prefix.\r\n\r\n#### Contribution\r\n\r\nI'm happy to contribute, if I can be guided towards which solutions are acceptable. It seems it might just be a matter of changing the signature on the API, but I'm not sure of the implications or additional requirements. For example, is this state supposed to be serializable?",
+ "created_at": "2021-06-02T19:15:13Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [
+  {
+   "body": "@Sanne you can cast Context to ContextInternal and use\r\n\r\n```java\r\n\r\n  /**\r\n   * @return the {@link ConcurrentMap} used to store context data\r\n   * @see Context#get(String)\r\n   * @see Context#put(String, Object)\r\n   */\r\n  ConcurrentMap<Object, Object> contextData();\r\n\r\n  /**\r\n   * @return the {@link ConcurrentMap} used to store local context data\r\n   */\r\n  ConcurrentMap<Object, Object> localContextData();\r\n```\r\n\r\ndirectly, I think it works well and it allows us to not change the signature of get/put methods in Vert.x 4.1, we might consider using Object in 4.2 that would break binary compatibility but would not be a breaking change\r\n",
+   "created_at": "2021-06-03T10:20:31Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "yes that seems fine - especially if there's reasonable hope for this to be public API in the future.\r\n\r\nAnd no rush! For context, this is only a performance issue in case people are using multi-tenancy - and fairly minor.\r\n\r\nThanks for confirming this change is reasonable.",
+   "created_at": "2021-06-03T10:57:02Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 2,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 4068,
+   "created_at": "2021-08-17T15:22:09Z",
+   "merged_at": "2021-08-23T08:44:40Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-08-17T15:22:09+00:00"
+}

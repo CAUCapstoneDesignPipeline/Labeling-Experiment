@@ -1,0 +1,74 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5317,
+ "title": "Undeployed Virtual Thread verticles cause memory leaks and/or never stop",
+ "body": "With the current `VirtualThread` deployment model implementation few issues occur:\r\n\r\n1. Upon context un-deployment, awaiting `virtual-threads` may not be notified of context closure/verticle undeployment\r\nThis happens when most commonly when the awaited promise is not a type of resource that throws exceptions on closure, this will leave the virtual thread waiting forever, which prevents GC from cleaning up any associated objects with it.\r\n\r\n2. Since virtual threads can now loop on things, it would be relevant to know when a context is closed, although currently the API is slightly tedious to extract the `closeFuture` and check its close state. Also, current implementation does not employ the traditional sense of `Thread.isInterrupted` approach, which means whats typically expected from `Executors`, on shutdown to call `Thread.interrupt`, will not happen, because a shared `VirtualThreadWorkerExecutor` is used and its only shutdown when entire `Vertx` is closed or on JVM exit.\r\n\r\nBoth of these issues I think can be solved with the same approach, we need to expose a way to see when a verticle/context was closed, so we can stop looping, which can either be interrupting the `threadPerTask` executor. This also conveniently solves the first issue, since interrupting will unblock the `await`.\r\n\r\nMy creating a per `Verticle` with a per `Context` worker pool, that allows us to freely interrupt it in `DeploymentManager#doUndeploy`\r\n```java\r\n          context.runOnContext(v -> {\r\n            Promise<Void> stopPromise = undeployingContext.promise();\r\n            Future<Void> stopFuture = stopPromise.future();\r\n            stopFuture.onComplete(ar -> {\r\n              deployments.remove(deploymentID);\r\n              if (context.threadingModel().equals(ThreadingModel.VIRTUAL_THREAD) &&\r\n                context.executor() instanceof WorkerExecutor) {\r\n                ((WorkerExecutor) context.executor()).interrupt();\r\n              }\r\n              verticleHolder.close(ar2 -> {\r\n                if (ar2.failed()) {\r\n                  // Log error but we report success anyway\r\n                  log.error(\"Failed to run close hook\", ar2.cause());\r\n                }\r\n                if (ar.succeeded()) {\r\n                  if (context.threadingModel().equals(ThreadingModel.VIRTUAL_THREAD)\r\n                    && context.executor() instanceof WorkerExecutor) {\r\n                    ((WorkerExecutor) context.executor()).interrupt();\r\n                  }\r\n                  p.complete();\r\n                } else if (ar.failed()) {\r\n                  p.fail(ar.cause());\r\n                }\r\n              });\r\n            });\r\n```\r\n\r\nIssue arrises that because there can be multiple virtual threads per context, odd race conditions occur, timers get set and that can also cause dangling resources. It is hard to pinpoint exactly what happens in my local testing. I think the `TaskQueue` needs special handling for this exit so that `VirtualThread`s that re-enter `TaskQueue` after interruption do not execute anything else.\r\n\r\nAnother option is to interrupt before running the `closeFuture`, but then making sure that no other tasks get executed is key, otherwise there will be no signal for the `VirtualThread` to stop\r\n\r\n",
+ "created_at": "2024-09-13T16:41:08Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "Do you have reproducers for this ? I suspect we indeed should scan the task queue to interrupt the pending threads there",
+   "created_at": "2024-09-13T20:33:05Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I can make some, although will be quite tedious due to encapsulation to query the remaining threads.\r\n\r\nBut the basic logic itself is clear, there are no interrupts. I tried in my own branch to interrupt after the close future runs, usually it is OK, but sometimes creates odd race conditions or for example triggers `.recover` future monad. In other cases interrupting before close future also allows graceful exit, but also has issues. \r\n\r\nOptimally if we could short circuit TaskQueue would be optimal, or completely jump the `await`",
+   "created_at": "2024-09-13T21:11:42Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I would appreciate a reproducer\r\n\r\nOn Fri, Sep 13, 2024 at 11:12 PM zekronium ***@***.***> wrote:\r\n\r\n> I can make some, although will be quite tedious due to encapsulation to\r\n> query the remaining threads.\r\n>\r\n> But the basic logic itself is clear, there are no interrupts. I tried in\r\n> my own branch to interrupt after the close future runs, usually it is OK,\r\n> but sometimes creates odd race conditions or for example triggers .recover\r\n> future monad. In other cases interrupting before close future also allows\r\n> graceful exit, but also has issues.\r\n>\r\n> Optimally if we could short circuit TaskQueue would be optimal, or\r\n> completely jump the await\r\n>\r\n> —\r\n> Reply to this email directly, view it on GitHub\r\n> <https://github.com/eclipse-vertx/vert.x/issues/5317#issuecomment-2350226148>,\r\n> or unsubscribe\r\n> <https://github.com/notifications/unsubscribe-auth/AABXDCVTLIFEVWK4GWHG2CLZWNIKJAVCNFSM6AAAAABOFXBFBGVHI2DSMVQWIX3LMV43OSLTON2WKQ3PNVWWK3TUHMZDGNJQGIZDMMJUHA>\r\n> .\r\n> You are receiving this because you commented.Message ID:\r\n> ***@***.***>\r\n>\r\n",
+   "created_at": "2024-09-13T22:29:27Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "Added some basic future tests. I can also setup more elaborate tests, especially nuances using `HttpClient` but this generally covers the base stepping stone. #5322 \r\n\r\nhttps://github.com/eclipse-vertx/vert.x/blob/32d2bd834aeaaabcf13b16fd34b3056bd419a649/src/test/java/io/vertx/core/VirtualThreadContextTest.java#L244-L277",
+   "created_at": "2024-09-18T00:12:42Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "thank you I will look into it",
+   "created_at": "2024-09-18T07:18:13Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@zekronium here is a mockup of what we should do https://github.com/eclipse-vertx/vert.x/pull/5339",
+   "created_at": "2024-10-02T14:41:36Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "I will test it and report if this works in our usage aswell",
+   "created_at": "2024-10-02T18:10:05Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "wait a little until I provide a more robust solution @zekronium ",
+   "created_at": "2024-10-02T18:59:06Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@zekronium I pushed a solution that seems ok to me do you mind testing the branch ?",
+   "created_at": "2024-10-03T16:44:10Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "@vietj May you rebase on 4.x?",
+   "created_at": "2024-10-03T17:27:16Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 10,
+ "n_comments_total": 10,
+ "linked_prs": [
+  {
+   "number": 5344,
+   "created_at": "2024-10-06T21:26:08Z",
+   "merged_at": "2024-10-07T15:48:08Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-10-06T21:26:08+00:00"
+}

@@ -1,0 +1,29 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4615,
+ "title": "A key HTTP2 performance loss has occurred",
+ "body": "While exploring the code base, I noticed that the gRPC transport layer had been replaced by the Vert'x HttpClient. Although this change is functional, it has resulted in the loss of a crucial performance feature that was developed by the Google team. The original gRPC client was capable of aggregating multiple DATA and HEADER frames into a single HTTP2 packet.\r\n\r\nIn this scenario, I am issuing two gRPC client requests in rapid succession. \r\n\r\ngRPC stub aggregate HEADERS[3] + HEADER[5] + DATA[3] + DATA[5] of the two client request into a single HTTP2 packet.\r\n![image](https://user-images.githubusercontent.com/6957561/218431756-a6c7d777-e423-4521-a58d-0698ffddb269.png)\r\n\r\nHttpClient in grpc-client split the two requests into four separate HTTP2 packets.\r\n![image](https://user-images.githubusercontent.com/6957561/218432622-2f222418-d904-453a-bc34-e0a659d610ea.png)\r\n\r\nThis creates a substantial overhead as each packet requires several additional TCP and HTTP headers. The total amount of bytes sent and received has significantly increased.\r\n",
+ "created_at": "2023-02-13T10:28:28Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "Hi @vietj , as suggested. I've tested with branch http-2-flush-aggregation and it works!\r\n\r\nBelow are the packets observed:\r\n\r\n4.3.x\r\n```\r\n-> Magic, SETTINGS[0]\r\n<- SETTINGS[0], SETTINGS[0]\r\n\r\n-> SETTINGS[0], HEADERS[1]\r\n-> DATA[1]\r\n<- HEADERS[1] 200 OK\r\n<- DATA[1]\r\n<- HEADERS[1]\r\n-> RST_STREAM[1]\r\n\r\n-> HEADERS[3]\r\n-> DATA[3] \r\n<- HEADERS[3] 200 OK\r\n<- DATA[3] \r\n<- HEADERS[3] \r\n-> RST_STREAM[3]\r\n\r\n-> GOAWAY[0]\r\n```\r\n\r\n4.4.0-http-2-flush-aggregation\r\n```\r\n\r\n-> Magic, SETTINGS[0]\r\n<- SETTINGS[0], SETTINGS[0]\r\n\r\n-> SETTINGS[0], HEADERS[1], DATA[1]\r\n<- HEADERS[1] 200 OK, DATA[1], HEADERS[1]\r\n\r\n-> RST_STREAM[1], HEADERS[3], DATA[3]\r\n<- HEADERS[3] 200 OK, DATA[3], HEADERS[3]\r\n-> RST_STREAM[3]\r\n\r\n-> GOAWAY[0]\r\n```\r\n\r\nI've also tried to fire the request in quick succession\r\n```\r\n-> Magic, SETTINGS[0]\r\n<- SETTINGS[0], SETTINGS[0]\r\n\r\n-> SETTINGS[0], HEADERS[1], DATA[1], HEADERS[3], DATA[3]\r\n<- HEADERS[3] 200 OK, DATA[3], HEADERS[3]\r\n-> RST_STREAM[1], RST_STREAM[3]\r\n\r\n-> GOAWAY[0]\r\n```\r\n",
+   "created_at": "2023-02-19T04:19:47Z",
+   "author_association": "NONE"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 2,
+ "linked_prs": [
+  {
+   "number": 4613,
+   "created_at": "2023-02-19T08:12:37Z",
+   "merged_at": "2023-02-21T08:07:50Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2023-02-19T08:12:37+00:00"
+}

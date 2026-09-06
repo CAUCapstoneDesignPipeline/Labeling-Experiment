@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 6276,
+ "title": "Shared HTTP client incorrect reference counting",
+ "body": "### Version\n\n5.1.5\n\n### Context\n\nThe shared HTTP client has a regression where closing one of its client, will close the underlying client, instead of updating the reference count and eventually closing it.\n\n### Steps to reproduce\n\n_No response_\n\n### Do you have a reproducer?\n\n_No response_",
+ "created_at": "2026-08-03T13:59:07Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 6269,
+   "created_at": "2026-07-31T15:19:35Z",
+   "merged_at": "2026-08-03T14:00:46Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2026-07-31T15:19:35+00:00"
+}

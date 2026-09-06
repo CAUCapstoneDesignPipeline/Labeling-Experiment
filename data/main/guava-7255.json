@@ -1,0 +1,25 @@
+{
+ "repo": "google/guava",
+ "number": 7255,
+ "title": "Implement of RateLimiter.setRate can be simplified",
+ "body": "```\r\npublic final void setRate(double permitsPerSecond) {\r\n    checkArgument(\r\n        permitsPerSecond > 0.0 && !Double.isNaN(permitsPerSecond), \"rate must be positive\");\r\n    synchronized (mutex()) {\r\n      doSetRate(permitsPerSecond, stopwatch.readMicros());\r\n    }\r\n  }\r\n```\r\nwhen permitsPerSecond is NaN，NaN > 0.0 return false, so check \"!Double.isNaN(permitsPerSecond)\" is redundant",
+ "created_at": "2024-06-13T02:12:29Z",
+ "author_association": "NONE",
+ "labels": [
+  "package=concurrent",
+  "type=other",
+  "P2"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 7265,
+   "created_at": "2024-06-21T15:01:55Z",
+   "merged_at": "2024-06-21T15:26:15Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2024-06-21T15:01:55+00:00"
+}

@@ -1,0 +1,60 @@
+{
+ "repo": "google/guava",
+ "number": 8088,
+ "title": "Entry set spliterators don't report the DISTINCT characteristic",
+ "body": "### Guava Version\n\n33.5.0-jre\n\n### Description\n\nI noticed a minor issue with some of the entry set spliterators not consistently reporting DISTINCT (ImmutableMap, ImmutableBiMap, etc). This is because they are backed by an ImmutableList, but we could easily override the characteristics of the Spliterator since it is known to be distinct.\n\n### Example\n\n```java\nImmutableBiMap.of().entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // true\nImmutableBiMap.of(\"a\", \"b\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // false\nImmutableBiMap.of(\"a\", \"b\", \"c\", \"d\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // false\nImmutableMap.of().entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // false\nImmutableMap.of(\"a\", \"b\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT)) // false\nImmutableMap.of(\"a\", \"b\", \"c\", \"d\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // false\n\n\nContrast that with the JDK:\n\n\nMap.of().entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // true\nMap.of(\"a\", \"b\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // true\nMap.of(\"a\", \"b\", \"c\", \"d\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // true\nMap.of(\"a\", \"b\", \"c\", \"d\", \"e\", \"f\").entrySet().spliterator().hasCharacteristics(Spliterator.DISTINCT); // true\n```\n\n### Expected Behavior\n\nI would expect the spliterator characteristics to match the JDK and report DISTINCT for an entry set.\n\n### Actual Behavior\n\nEntry set spliterators don't consistently report DISTINCT.\n\n### Packages\n\ncom.google.common.collect\n\n### Platforms\n\n_No response_\n\n### Checklist\n\n- [x] I agree to follow the [code of conduct](https://github.com/google/.github/blob/master/CODE_OF_CONDUCT.md).\n\n- [x] I can reproduce the bug with the [latest](https://github.com/google/guava/releases/latest) version of Guava available.\n",
+ "created_at": "2025-11-11T18:18:28Z",
+ "author_association": "CONTRIBUTOR",
+ "labels": [
+  "type=defect",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Under what circumstances does this produce any difference in semantics or performance, though?  I believe we considered this at the time, but concluded that it was only relevant someone called `distinct()` on a stream directly from a set, which seemed unlikely.",
+   "created_at": "2025-11-13T17:12:37Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "> Under what circumstances does this produce any difference in semantics or performance, though? I believe we considered this at the time, but concluded that it was only relevant someone called `distinct()` on a stream directly from a set, which seemed unlikely.\n\nRight, I believe it would disable optimizations if someone called `distinct()`, but I don't know that it's all that far-fetched that it could occur, basically when the stream interaction is far removed (a method that accepts a Collection that then does some stream manipulation, something like that).\n\nI think the main thing here is just the consistency, I noticed the discrepancy between the JDK behavior and Guava, and it seems relatively easy to just set the correct characteristics.",
+   "created_at": "2025-11-13T17:22:27Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "The Javadoc for Set also indicates that the spliterator reports DISTINCT.",
+   "created_at": "2025-11-13T17:24:21Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "I think we've previously discussed characteristics like [`NONNULL`, `CONCURRENT`](https://github.com/google/guava/issues/7855), and `ORDERED` (internal issue 215153860, \"Without it, `distinct` discards ordering.\"). It seems that we're not necessarily especially careful about our characteristics, probably because of the lack of clear impact. It might be nice to fix (so thank you for reporting) but probably wouldn't be a priority.",
+   "created_at": "2025-11-13T17:39:58Z",
+   "author_association": "MEMBER"
+  },
+  {
+   "body": "It is trivial to fix, would you be inclined to accept a PR for this?",
+   "created_at": "2025-11-13T17:46:53Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Another argument in favor of this change is that it seems that in many other places in Guava, we do go out of our way to set DISTINCT for sets / entry sets, so this seems like an inconsistency (AbstractMultimap, CompactHashMap, ArrayTable, etc).",
+   "created_at": "2025-11-13T17:52:52Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "Thanks. I think @lowasser is looking some at this, but I don't want to make promises about specifically what that will amount to, nor around whatever might be left. Hopefully we can figure that out afterward.",
+   "created_at": "2025-11-17T14:47:30Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 7,
+ "n_comments_total": 7,
+ "linked_prs": [
+  {
+   "number": 8091,
+   "created_at": "2025-11-17T19:03:53Z",
+   "merged_at": "2025-11-17T22:50:53Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-11-17T19:03:53+00:00"
+}

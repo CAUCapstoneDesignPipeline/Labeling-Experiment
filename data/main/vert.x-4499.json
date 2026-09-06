@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 4499,
+ "title": "MimeMapping.getMimeTypeForExtension should be Case Insensitive",
+ "body": "### Issue\r\n\r\nStatic file response no content type if extension name contains upper case characters\r\n\r\n[StaticHandlerImpl.java#L463](https://github.com/vert-x3/vertx-web/blob/efc35f2caeedc135779895b9008268cdcbdb9042/vertx-web/src/main/java/io/vertx/ext/web/handler/impl/StaticHandlerImpl.java#L463)\r\n\r\n### Version\r\n\r\n4.2.7\r\n\r\n### Do you have a reproducer?\r\n[MimeMapping.java#L1016](https://github.com/eclipse-vertx/vert.x/blob/11ab144725e551be591118831377101015e1392c/src/main/java/io/vertx/core/http/impl/MimeMapping.java#L1016)\r\n\r\n### Steps to reproduce\r\n\r\n```java\r\n@TestMethodOrder(OrderAnnotation.class)\r\npublic class MimeMappingTester {\r\n\r\n    @Test\r\n    @Order(1)\r\n    void textLocalFile() {\r\n        Path file = Path.of(\"/Users/leo/Pictures/IMG_4157.JPG\");\r\n        System.out.println(String.format(\"'%s', contentType: %s\", file, MimeMapping.getMimeTypeForFilename(file.toString())));\r\n\r\n        Path file2 = Path.of(\"/Users/leo/Pictures/IMG_4157.jpg\");\r\n        System.out.println(String.format(\"'%s', contentType: %s\", file2, MimeMapping.getMimeTypeForFilename(file2.toString())));\r\n    }\r\n\r\n    @Test\r\n    @Order(2)\r\n    void textUrlFile() {\r\n        try {\r\n            URL url = new URL(\"https://xgos.com/Pictures/IMG_4157.JPG\");\r\n            System.out.println(String.format(\"'%s', contentType: %s\", url, MimeMapping.getMimeTypeForFilename(url.toString())));\r\n\r\n            URL url2 = new URL(\"https://xgos.com/Pictures/IMG_4157.jpg\");\r\n            System.out.println(String.format(\"'%s', contentType: %s\", url2, MimeMapping.getMimeTypeForFilename(url2.toString())));\r\n        } catch (MalformedURLException e) {\r\n            e.printStackTrace();\r\n        }\r\n    }\r\n}\r\n```\r\n\r\n### Console Output\r\n```console\r\n'/Users/leo/Pictures/IMG_4157.JPG', contentType: null\r\n'/Users/leo/Pictures/IMG_4157.jpg', contentType: image/jpeg\r\n\r\n'https://xgos.com/Pictures/IMG_4157.JPG', contentType: null\r\n'https://xgos.com/Pictures/IMG_4157.jpg', contentType: image/jpeg\r\n```\r\n",
+ "created_at": "2022-10-02T05:22:55Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 5523,
+   "created_at": "2025-03-11T20:57:39Z",
+   "merged_at": "2025-03-11T22:19:40Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-03-11T20:57:39+00:00"
+}

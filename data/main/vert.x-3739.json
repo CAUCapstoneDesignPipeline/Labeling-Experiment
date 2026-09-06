@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3739,
+ "title": "uploadHandler invoked on connection context",
+ "body": "`uploadHandler` should be invoked on the same context as the `requestHandler` of the `HttpServer`.\r\n\r\nThis works as expected with HTTP/2 servers but not with HTTP 1.x servers.\r\n\r\nOne possible impact is the loss of local context data (support of tracing).",
+ "created_at": "2021-01-08T15:12:58Z",
+ "author_association": "MEMBER",
+ "labels": [
+  "bug"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 3740,
+   "created_at": "2021-01-08T15:18:58Z",
+   "merged_at": "2021-01-09T08:47:01Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-01-08T15:18:58+00:00"
+}

@@ -1,0 +1,29 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 5473,
+ "title": "JsonParser fails to parse integers outside the domain of `long`",
+ "body": "### Version\n\n4.5.12\n\n### Context\n\nI have a situation similar to\n\n```java\nString json = \"{ \\\"big_number\\\": 18446744073709551615 }\";\nJsonParser parser = JsonParser.newParser();\nparser.handle(Buffer.buffer(json));\n```\n\nwhere Vertx fails to parse the value, throwing a `JsonDecodeException`.\n\n```\nio.vertx.core.json.DecodeException: \nNumeric value (18446744073709551615) out of range of long (-9223372036854775808 - 9223372036854775807)\n```\n\nAfaik there is nothing in the JSON spec which would prohibit using arbitrarily large numbers.\n\n### Do you have a reproducer?\n\nYes -> https://github.com/filipkastovsky/stunning-train\n\n### Steps to reproduce\n\n1. Attempt to parse a JSON with an integer that will not fit in `long`, ie. max uint64 - 18446744073709551615\n2. The parsing will fail\n\n### Extra\n\nStacktrace:\n\n```\nio.vertx.core.json.DecodeException: Numeric value (18446744073709551615) out of range of long (-9223372036854775808 - 9223372036854775807)\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 37]\n        at io.vertx.core.parsetools.impl.JsonParserImpl.checkExceptions(JsonParserImpl.java:331)\n        at io.vertx.core.parsetools.impl.JsonParserImpl.handle(JsonParserImpl.java:162)\n        at io.vertx.core.parsetools.impl.JsonParserImpl.handle(JsonParserImpl.java:40)\n        at com.example.starter.MainVerticle.start(MainVerticle.java:15)\n        at io.vertx.core.impl.DeploymentManager.lambda$doDeploy$5(DeploymentManager.java:210)\n        at io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:270)\n        at io.vertx.core.impl.ContextInternal.dispatch(ContextInternal.java:252)\n        at io.vertx.core.impl.ContextInternal.lambda$runOnContext$0(ContextInternal.java:50)\n        at io.netty.util.concurrent.AbstractEventExecutor.runTask(AbstractEventExecutor.java:173)\n        at io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:166)\n        at io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:472)\n        at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:569)\n        at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:997)\n        at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)\n        at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)\n        at java.base/java.lang.Thread.run(Thread.java:1583)\nCaused by: com.fasterxml.jackson.core.exc.InputCoercionException: Numeric value (18446744073709551615) out of range of long (-9223372036854775808 - 9223372036854775807)\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 37]\n        at com.fasterxml.jackson.core.base.ParserMinimalBase._reportInputCoercion(ParserMinimalBase.java:640)\n        at com.fasterxml.jackson.core.base.ParserMinimalBase.reportOverflowLong(ParserMinimalBase.java:632)\n        at com.fasterxml.jackson.core.base.ParserMinimalBase.reportOverflowLong(ParserMinimalBase.java:627)\n        at com.fasterxml.jackson.core.base.ParserBase._reportTooLongIntegral(ParserBase.java:1021)\n        at com.fasterxml.jackson.core.base.ParserBase._parseSlowInt(ParserBase.java:1002)\n        at com.fasterxml.jackson.core.base.ParserBase._parseNumericValue(ParserBase.java:931)\n        at com.fasterxml.jackson.core.base.ParserBase.getLongValue(ParserBase.java:782)\n        at io.vertx.core.parsetools.impl.JsonParserImpl.checkTokens(JsonParserImpl.java:242)\n        at io.vertx.core.parsetools.impl.JsonParserImpl.handle(JsonParserImpl.java:160)\n        ... 14 more\n```\n",
+ "created_at": "2025-02-06T09:06:29Z",
+ "author_association": "NONE",
+ "labels": [
+  "bug"
+ ],
+ "comments": [
+  {
+   "body": "we can parse using another method and make it available as a value",
+   "created_at": "2025-02-06T12:41:20Z",
+   "author_association": "MEMBER"
+  }
+ ],
+ "n_comments_before_pr": 1,
+ "n_comments_total": 1,
+ "linked_prs": [
+  {
+   "number": 5476,
+   "created_at": "2025-02-06T16:25:56Z",
+   "merged_at": "2025-02-06T17:18:19Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-02-06T16:25:56+00:00"
+}

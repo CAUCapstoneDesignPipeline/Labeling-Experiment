@@ -1,0 +1,82 @@
+{
+ "repo": "google/guava",
+ "number": 5773,
+ "title": "Make `Iterators.mergeSorted()` stable",
+ "body": "I've noticed that `Iterators.mergeSorted()` is unstable.\r\n\r\nSo for example if I have arrays: `[A_1, B_1, C_1]` `[A_2, B_2, C_2]` (where the comparator looks only at the letter), I'd like the result to iterate `[A_1, A_2,  B_1, B_2,  C_1, C_2]`. The current implementation doesn't guarantee this.\r\n\r\nMight it be possible to add a stable version?\r\n\r\nI confess it's not obvious what to do if the arrays are something like `[A_1, A_2, B_1]`, `[A_3]` - to me it would make sense to empty the first iterator of `A_n` elements before moving on to the second, so `[A_1, A_2, A_3, B_1]`.\r\n\r\n\r\n[I appreciate I'm being a little lazy with my terminology here - I can provide a fully fleshed example if it's not clear]",
+ "created_at": "2021-11-03T18:11:59Z",
+ "author_association": "NONE",
+ "labels": [
+  "type=enhancement",
+  "package=collect",
+  "status=triaged",
+  "P3"
+ ],
+ "comments": [
+  {
+   "body": "Could you provide some examples please?",
+   "created_at": "2021-11-09T05:42:33Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@tuannh982: given a really simple data class:\r\n\r\n```java\r\n    public static class Datum {\r\n        private final String letter;\r\n        private final int number;\r\n\r\n        public Datum(String letter, int number) {\r\n            this.letter = letter;\r\n            this.number = number;\r\n        }\r\n\r\n        public String letter() { return letter; }\r\n        public int number() { return number; }\r\n\r\n        @Override\r\n        public String toString() {\r\n            return letter + \" \" + number;\r\n        }\r\n    }\r\n```\r\n\r\nAnd the following test:\r\n\r\n```java\r\n    @Test\r\n    public void sortMe() {\r\n        List<Datum> left = List.of(\r\n                new Datum(\"B\", 1),\r\n                new Datum(\"C\", 1)\r\n        );\r\n\r\n        List<Datum> right = List.of(\r\n                new Datum(\"A\", 2),\r\n                new Datum(\"C\", 2)\r\n        );\r\n        \r\n        var comparator = Comparator.comparing(Datum::letter);\r\n        var it = Iterators.mergeSorted(\r\n                List.of(left.iterator(), right.iterator()), comparator);\r\n        it.forEachRemaining(next->System.out.println(next));\r\n    }\r\n```\r\n\r\nI'd get:\r\n\r\n```\r\nA 2\r\nB 1\r\nC 2\r\nC 1\r\n```\r\n\r\nNote how `C 2` comes before `C 1`. If the sort were stable I'd expect to see `C 1` before `C 2` because that's the order they appear in the input.\r\n\r\nFull code here: https://gist.github.com/msmerc/279c32fe6620b0dcf2dc6f2c4dfa1469\r\n",
+   "created_at": "2021-11-09T09:19:42Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@msmerc: okay, please assign this issue to me.",
+   "created_at": "2021-11-09T10:52:12Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@chaoren @msmerc  Hello. I would like to work on this issue. But This is my first time contributing to an open-source project. Therefore, I need some guidance. Could you please give me more information about this issue?",
+   "created_at": "2022-01-30T10:19:00Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@HarunSMetin what exactly isn't clear?",
+   "created_at": "2022-02-01T09:32:49Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@msmerc May I know why @tuannh982 's CR couldn't be accepted and issue is still open..?",
+   "created_at": "2022-04-23T13:06:39Z",
+   "author_association": "CONTRIBUTOR"
+  },
+  {
+   "body": "@tanmauec  see comment here: https://github.com/google/guava/pull/5779\r\n\r\nBTW: I'm just the reporter, I have no say in what gets merged or why!",
+   "created_at": "2022-04-25T09:31:35Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "@chaoren  / google folk: I've had a go at solving this, see https://gist.github.com/msmerc/fff91f4049dd4d8e39f3614bb0c58acb\r\n\r\nMy solution is to generate a comparable such that objects are equal (using the original comparator) it will compare the position in the initial array. Is this something you'd want in the main library? Let me know.",
+   "created_at": "2022-05-03T08:12:51Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hi, \r\nI am new to open source contribution projects. I see that this issue is still open. I was hoping that I could work on it if it has not already been implemented? ",
+   "created_at": "2022-10-26T05:35:21Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "Hi! Can I make a PR?",
+   "created_at": "2023-04-24T21:53:35Z",
+   "author_association": "NONE"
+  },
+  {
+   "body": "I'm sorry we slept on this issue a while.\r\n\r\nI see no reason NOT to make `mergeSorted` stable, and certainly no reason to add a separate stable form of it. Any performance impact would surely be small. Tied elements coming out in a different order might temporarily make a unit test or two fail, but seems unlikely to present a real problem beyond that.\r\n\r\nThe first PR that would be useful would have test cases that illustrate the problem -- this is unorthodox, but yes, I mean they actually verify that the problem *does* exist. By default I would assume that we want to find a good variety of these test cases, but if we are convinced that all the cases follow the same simple pattern it might not be necessary. (I'm not even reading the mergeSorted code right now.)\r\n\r\nWe would pull that and then the next PR could simultaneously make the method stable and change the tests just added accordingly.\r\n\r\nI guess we leave it to you all to fight over who gets to do it? Keep it civil now :-)",
+   "created_at": "2023-06-07T21:12:19Z",
+   "author_association": "CONTRIBUTOR"
+  }
+ ],
+ "n_comments_before_pr": 11,
+ "n_comments_total": 11,
+ "linked_prs": [
+  {
+   "number": 7996,
+   "created_at": "2025-09-16T01:43:35Z",
+   "merged_at": "2025-09-16T12:42:19Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2025-09-16T01:43:35+00:00"
+}

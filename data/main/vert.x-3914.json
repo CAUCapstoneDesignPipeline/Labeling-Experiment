@@ -1,0 +1,23 @@
+{
+ "repo": "eclipse-vertx/vert.x",
+ "number": 3914,
+ "title": "Support jrt protocol in io.vertx.core.file.impl.FileResolver#unpackUrlResource",
+ "body": "#### Read me\r\n\r\nRead this first before creating an issue:\r\n\r\n- do not use this issue tracker to ask questions, instead use one of these [channels](https://vertx.io/community/). Questions will likely be closed without notice.\r\n- you shall create a feature request only when it is general purpose enough.\r\n- make sure that the feature is not already\r\n\r\n#### Describe the feature\r\n\r\nAdd the jrt protocol to FileResolver.unpackUrlResource() method, so that vert.x can read files from resources when the app is a (jlink) run-time image.\r\n\r\n#### Use cases\r\n\r\nJlink generated images\r\n\r\n#### Contribution\r\n\r\nprivate File unpackUrlResource(URL url, String fileName, ClassLoader cl, boolean isDir) {\r\n&nbsp;&nbsp;&nbsp;&nbsp;String prot = url.getProtocol();\r\n&nbsp;&nbsp;&nbsp;&nbsp;switch (prot) {\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"file\":\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return unpackFromFileURL(url, fileName, cl);\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"jar\":\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return unpackFromJarURL(url, fileName, cl);\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"bundle\": // Apache Felix, Knopflerfish\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"bundleentry\": // Equinox\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"bundleresource\": // Equinox\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"jrt\": // java run-time (JEP 220)    **<<<================== Add jrt case**\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;case \"resource\":  // substratevm (graal native image)\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return unpackFromBundleURL(url, isDir);\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;default:\r\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;throw new IllegalStateException(\"Invalid url protocol: \" + prot + \" for url: \" + url);\r\n&nbsp;&nbsp;&nbsp;&nbsp;}\r\n}",
+ "created_at": "2021-05-07T17:04:56Z",
+ "author_association": "NONE",
+ "labels": [
+  "enhancement"
+ ],
+ "comments": [],
+ "n_comments_before_pr": 0,
+ "n_comments_total": 0,
+ "linked_prs": [
+  {
+   "number": 3922,
+   "created_at": "2021-05-12T13:47:11Z",
+   "merged_at": "2021-05-20T09:36:32Z"
+  }
+ ],
+ "n_linked_prs": 1,
+ "first_pr_created_at": "2021-05-12T13:47:11+00:00"
+}
